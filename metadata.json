@@ -1,0 +1,7 @@
+{
+  "name": "Remix: Posture Alignment Detector",
+  "description": "Analyze body posture alignment using front and side profile photos with AI.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

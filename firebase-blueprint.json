@@ -1,0 +1,31 @@
+{
+  "entities": {
+    "PostureAnalysis": {
+      "title": "PostureAnalysis",
+      "description": "A record of a posture analysis result.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the record." },
+        "userId": { "type": "string", "description": "The user ID who owns this analysis." },
+        "timestamp": { "type": "string", "format": "date-time", "description": "When the analysis was performed." },
+        "frontImage": { "type": "string", "description": "Base64 encoded front view image." },
+        "sideImage": { "type": "string", "description": "Base64 encoded side view image." },
+        "score": { "type": "number", "description": "Overall posture score." },
+        "riskLevel": { "type": "string", "enum": ["低", "中", "高"], "description": "Calculated risk level." },
+        "summary": { "type": "string", "description": "Professional summary." },
+        "alignment": { "type": "object", "description": "Detailed alignment analysis." },
+        "metrics": { "type": "object", "description": "Key posture metrics." },
+        "scoreBreakdown": { "type": "object", "description": "Breakdown of the overall score." },
+        "recommendations": { "type": "array", "items": { "type": "string" }, "description": "List of recommendations." },
+        "exercises": { "type": "array", "description": "Recommended exercises." }
+      },
+      "required": ["userId", "timestamp", "score", "riskLevel"]
+    }
+  },
+  "firestore": {
+    "/history/{analysisId}": {
+      "schema": "PostureAnalysis",
+      "description": "Collection of posture analysis history records."
+    }
+  }
+}
