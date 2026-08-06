@@ -1,36 +1,131 @@
 <div align="center">
-  <img width="1200" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 
-  <h1>🚀 AI Studio 應用程式：商用開發範本</h1>
+# 🚶 AI 動態步態分析
 
-  <p>
-    <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-LTS-green?style=flat-square&logo=node.js" alt="Node.js"></a>
-    <a href="https://ai.google.dev/"><img src="https://img.shields.io/badge/Model-Gemini%20Pro-blue?style=flat-square&logo=google-gemini" alt="Gemini"></a>
-    <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" alt="License"></a>
-  </p>
+**上傳一段走路影片,取得客觀量測的步態指標與 AI 臨床解讀。**
 
-  <p><b>本專案是一個基於 Google AI Studio 打造的高效能 AI 應用，旨在提供穩定且易於擴展的生成式 AI 解決方案。</b></p>
+<a href="https://ai.studio/apps/2469975a-2ce5-4fb5-8a4d-34e8ece01753">🌐 在 AI Studio 中檢視應用程式</a>
 
-  <a href="https://ai.studio/apps/2469975a-2ce5-4fb5-8a4d-34e8ece01753">🌐 點此在 AI Studio 中檢視應用程式</a>
 </div>
 
 ---
 
-## ✨ 核心功能 (Key Features)
+## 這個應用在做什麼
 
-* **⚡ 即時推論：** 完美整合 Gemini API，實現毫秒級的 AI 回應速度。
-* **🛠️ 開發友善：** 預配置的 Node.js 環境，支援熱重載（Hot Reload）快速開發。
-* **🛡️ 安全架構：** 嚴謹的環境變數隔離機制，確保 API Key 不外洩。
-* **📱 響應式佈局：** 前端介面適配各類行動裝置與桌面瀏覽器。
+使用者用手機側面拍下自己走路的影片,系統在**瀏覽器端**逐幀抽取 33 個人體關節點,計算步頻、步長、站立/擺盪期、髖膝踝關節角度曲線與左右對稱性,再由 Gemini 提供臨床解讀與運動處方。
 
----
+影片全程不上傳雲端。
 
-## 🛠️ 本地開發指南 (Getting Started)
+## 為什麼不是讓 AI 直接看影片就好
 
-要開始執行此專案，請確保你的電腦已安裝 **Node.js (v18+)**。
+因為那樣得到的數字無法重現。
 
-### 1. 複製專案與安裝套件
+本專案採**雙軌交叉驗證**架構:
+
+```
+影片(端上)
+   │
+   ├──► A 軌  MediaPipe 逐幀關節點 ──► 純演算法計算 ──► 客觀指標
+   │           (Zeni 步態事件偵測、關節角度、對稱性指數)
+   │
+   └──► B 軌  Gemini 獨立觀看取樣影格 ──► 獨立估計 + 質性觀察
+                                                    │
+                          ┌─────────────────────────┘
+                          ▼
+                    仲裁層(純 TypeScript 計算兩軌一致性)
+                          │
+                          ▼
+              Gemini 最終報告(數值一律以 A 軌為準)
+```
+
+- **A 軌為準**:所有數值由確定性演算法算出,可重現、可寫測試。Gemini 不產生任何最終數字。
+- **B 軌為輔**:提供 A 軌看不到的資訊(疼痛徵象、衣物遮蔽、鞋具、輔具),並作為獨立觀測。
+- **仲裁層為純程式**:兩軌步頻估計差異超過 15% 時,系統會主動提示重拍。
+
+單軌管線最大的風險是**靜默失敗** — 關節點被抓錯時,演算法仍會吐出看起來合理的數字。第二軌的存在就是為了讓這種情況浮現成「低信心度」,而不是一份錯誤但很專業的報告。
+
+完整設計文件見 [`docs/PRD-gait-analysis.md`](docs/PRD-gait-analysis.md)。
+
+## 量測到的指標
+
+**時空參數** — 步頻、步態週期時間、站立/擺盪期佔比、雙支撐期、步長、步幅、步行速度、步態週期變異度、步寬(需正面視角)
+
+**運動學** — 髖/膝/踝關節在 0–100% 步態週期上的角度曲線(每側 101 點)、各關節 ROM、擺盪期最大膝屈曲角、觸地時膝屈曲角、軀幹前傾與擺動、骨盆下沉、手臂擺動幅度
+
+**對稱性** — `SI = |左−右| ÷ 平均 × 100%`,套用於步長、步態時間、站立期佔比、各關節 ROM 與手臂擺動
+
+**異常樣式** — 疼痛跛行、擺盪期膝屈曲不足、踝關節活動度受限、膝過度伸直、小碎步、Trendelenburg 徵象、節律不穩定、手臂擺動不對稱
+
+## 技術架構
+
+| 檔案 | 職責 |
+|---|---|
+| `src/services/poseTracker.ts` | MediaPipe 封裝,逐幀抽取關節點與關鍵幀 |
+| `src/services/gaitMetrics.ts` | 指標計算。**純函式,無 AI、無網路、無 DOM** |
+| `src/services/gemini.ts` | B 軌獨立觀察 + 最終臨床解讀 |
+| `src/services/analyzeGait.ts` | 流程編排與 Firestore 寫入前的資料瘦身 |
+| `src/components/charts/` | 步態週期角度曲線、對稱性、週期組成圖表 |
+| `scripts/verify-gait-metrics.ts` | 合成步行者驗證harness |
+
+**尺度校正**:MediaPipe 的 `worldLandmarks` 已是公尺級座標,但基於平均體型假設。系統用使用者身高再校正一次(鼻高 ≈ 0.930 × 身高,踝高 ≈ 0.039 × 身高)。校正係數偏離 1.0 超過 ±40% 時判定為姿態偵測異常。
+
+**步態事件偵測**:採用 Zeni et al. (2008) 座標法 — 觸地為足跟相對骨盆的前向位移極大值,離地為足尖的極小值。因為 world 座標以髖中心為原點,人體在畫面中的整體平移會自然消除,不需相機標定。
+
+## 本地開發
+
+需要 **Node.js 18+**。
+
 ```bash
-git clone [你的倉庫網址]
-cd [你的專案資料夾]
 npm install
+cp .env.example .env          # 填入 GEMINI_API_KEY
+npm run dev                   # http://localhost:3000
+```
+
+其他指令:
+
+```bash
+npm run lint                  # TypeScript 型別檢查
+npm run verify:metrics        # 用合成步行者驗證指標計算正確性
+npm run build                 # 產生 production build
+```
+
+### 驗證指標計算
+
+`npm run verify:metrics` 會建立一個參數已知的合成步行者(週期 1.1 秒、指定的關節振幅),跑過完整的指標管線,再檢查算出來的數字是否還原成輸入值:
+
+```
+[PASS] 步頻還原至 109.1 steps/min — cadence = 108.8
+[PASS] 膝關節 ROM 還原至輸入振幅 (0.5 rad ≈ 28.6°) — knee ROM = 28.6°
+[PASS] 來回兩趟的步長仍為正值(方向已正確處理) — left stepLength = 0.614 m
+```
+
+這是 A 軌值得信任的原因:事件偵測器的正負號錯誤或座標軸搞混,會在這裡失敗,而不是變成一份看起來合理的錯誤報告。
+
+## 拍攝方式
+
+1. 手機橫放,固定在腰部高度
+2. 鏡頭距離行走路線 3–4 公尺,拍攝**側面**
+3. 來回走 2 趟,以平常速度自然行走
+4. 頭到腳全程完整入鏡
+5. 貼身衣物、平常的鞋子
+6. 光線充足、地面平整
+
+建議長度 8–15 秒。
+
+## 已知限制
+
+- **單鏡頭 2D**:絕對長度類指標(步長、步幅、速度)誤差約 10–15%。對稱性與關節角度指標可靠度較高。
+- **矢狀面優先**:步寬、Trendelenburg 徵象、足前進角需要正面視角。
+- **拍攝條件敏感**:寬鬆衣物、光線不足、人體未完整入鏡都會降低關節點偵測品質。系統會將這些情況反映在信心度上。
+- **不具醫療診斷效力**,不可取代專業臨床評估。
+
+## 隱私
+
+- 影片以 `URL.createObjectURL` 在端上讀取,分析完成後立即釋放,**不上傳雲端**
+- B 軌送給 Gemini 的取樣影格為單次請求用完即棄,不落地
+- Firestore 只儲存:指標 JSON、降採樣角度曲線、2–4 張壓縮關鍵幀、AI 解讀
+- 改版前的靜態體態分析記錄保留為唯讀,不刪除
+
+## 授權
+
+MIT

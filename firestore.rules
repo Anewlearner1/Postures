@@ -7,19 +7,28 @@ service cloud.firestore {
     //
     // Collection: history
     // Document ID: {analysisId}
-    // Fields:
-    //   - userId: string (required) - The user ID who owns this analysis.
-    //   - timestamp: string (required, ISO 8601) - When the analysis was performed.
-    //   - frontImage: string (optional) - Base64 encoded front view image.
-    //   - sideImage: string (optional) - Base64 encoded side view image.
-    //   - score: number (required) - Overall posture score.
-    //   - riskLevel: string (required, enum: ["低", "中", "高"]) - Calculated risk level.
-    //   - summary: string (optional) - Professional summary.
-    //   - alignment: map (optional) - Detailed alignment analysis.
-    //   - metrics: map (optional) - Key posture metrics.
-    //   - scoreBreakdown: map (optional) - Breakdown of the overall score.
-    //   - recommendations: list (optional) - List of recommendations.
-    //   - exercises: list (optional) - Recommended exercises.
+    //
+    // Two record shapes share this collection.
+    //
+    // type == 'gait' (current) — written by the gait analysis pipeline:
+    //   - userId: string (required)
+    //   - type: string (required, 'gait')
+    //   - timestamp: timestamp (required)
+    //   - score: number (required) - Overall gait score, 0-100.
+    //   - riskLevel: string (required, enum: ["低", "中", "高"])
+    //   - analysis: map (required) - Metrics, reconciliation and interpretation.
+    //   - keyFrames: list (optional) - A few compressed JPEG data URLs.
+    //   Note: the walking video itself is never uploaded. Only derived metrics
+    //   and a handful of thumbnails are stored.
+    //
+    // legacy posture records — written by the pre-rewrite photo analysis. No
+    // new documents of this shape are created; they remain readable and
+    // deletable by their owner so a product change does not discard user data.
+    //   - userId: string (required)
+    //   - type: absent, or 'posture'
+    //   - timestamp: timestamp or ISO 8601 string (older clients wrote both)
+    //   - frontImage / sideImage: string (optional) - Base64 photos.
+    //   - score, riskLevel, analysis: as above.
     //
     // ===============================================================
 
@@ -45,11 +54,26 @@ service cloud.firestore {
           (request.auth.token.email == "roypublicmail20@gmail.com" && request.auth.token.email_verified == true));
     }
 
+    // Older clients wrote `timestamp` as an ISO string while the current one
+    // writes a Firestore timestamp, so both are accepted.
+    function hasTimestamp(data) {
+      return data.timestamp is timestamp || data.timestamp is string;
+    }
+
     function isValidAnalysis(data) {
       return data.userId is string &&
-             data.timestamp is string &&
+             hasTimestamp(data) &&
              data.score is number &&
+             data.score >= 0 && data.score <= 100 &&
              data.riskLevel in ["低", "中", "高"];
+    }
+
+    // Only gait records may be created from here on. Legacy posture documents
+    // stay readable and deletable, but the write path for them is closed.
+    function isValidGaitAnalysis(data) {
+      return isValidAnalysis(data) &&
+             data.type == 'gait' &&
+             data.analysis is map;
     }
 
     // ===============================================================
@@ -58,8 +82,8 @@ service cloud.firestore {
 
     match /history/{analysisId} {
       allow read: if isDocOwner() || isAdmin();
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidAnalysis(request.resource.data);
-      allow update: if isDocOwner() && isValidAnalysis(request.resource.data) && request.resource.data.userId == resource.data.userId;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidGaitAnalysis(request.resource.data);
+      allow update: if isDocOwner() && isValidGaitAnalysis(request.resource.data) && request.resource.data.userId == resource.data.userId;
       allow delete: if isDocOwner() || isAdmin();
     }
 
