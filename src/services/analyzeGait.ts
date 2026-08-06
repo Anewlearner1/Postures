@@ -9,11 +9,12 @@
 import { extractPoseSequence, type ExtractProgress } from './poseTracker';
 import { computeGaitMetrics, reconcileTracks } from './gaitMetrics';
 import { interpretGait, observeGaitFrames } from './gemini';
-import type { GaitAnalysis } from '../types/gait';
+import type { GaitAnalysis, PoseSequence } from '../types/gait';
 
 export type AnalysisStage =
   | 'preparing'
   | 'tracking'
+  | 'trackingFrontal'
   | 'measuring'
   | 'observing'
   | 'interpreting'
@@ -26,15 +27,23 @@ export interface AnalysisProgress {
   percent: number;
 }
 
-/** Each stage owns a slice of the bar so it advances monotonically. */
-const STAGE_RANGE: Record<AnalysisStage, [number, number]> = {
-  preparing: [0, 5],
-  tracking: [5, 60],
-  measuring: [60, 66],
-  observing: [66, 82],
-  interpreting: [82, 99],
-  done: [100, 100],
-};
+/**
+ * Each stage owns a slice of the bar so it advances monotonically. The
+ * optional frontal-video pass borrows part of the primary tracking stage's
+ * share rather than getting its own fixed budget, so the bar's pacing does
+ * not jump depending on whether a second video was supplied.
+ */
+function buildStageRanges(hasFrontal: boolean): Record<AnalysisStage, [number, number]> {
+  return {
+    preparing: [0, 5],
+    tracking: hasFrontal ? [5, 45] : [5, 60],
+    trackingFrontal: hasFrontal ? [45, 60] : [60, 60],
+    measuring: [60, 66],
+    observing: [66, 82],
+    interpreting: [82, 99],
+    done: [100, 100],
+  };
+}
 
 export interface GaitAnalysisResult {
   analysis: GaitAnalysis;
@@ -45,9 +54,12 @@ export async function analyzeGaitVideo(
   file: File,
   heightCm: number,
   onProgress?: (p: AnalysisProgress) => void,
+  frontalFile?: File,
 ): Promise<GaitAnalysisResult> {
+  const stageRange = buildStageRanges(!!frontalFile);
+
   const report = (stage: AnalysisStage, message: string, fraction = 0) => {
-    const [lo, hi] = STAGE_RANGE[stage];
+    const [lo, hi] = stageRange[stage];
     onProgress?.({
       stage,
       message,
@@ -61,18 +73,33 @@ export async function analyzeGaitVideo(
     if (p.phase === 'loading-model') {
       report('preparing', '正在載入姿態偵測模型…');
     } else if (p.phase === 'decoding') {
-      report('preparing', '正在解碼影片…', 1);
+      report('preparing', '正在解碼側面影片…', 1);
     } else if (p.phase === 'detecting') {
       report(
         'tracking',
-        `正在逐幀偵測關節點(${p.processed} / ${p.total})…`,
+        `正在逐幀偵測關節點,側面影片(${p.processed} / ${p.total})…`,
         p.total ? p.processed / p.total : 0,
       );
     }
   });
 
+  let frontalSequence: PoseSequence | undefined;
+  if (frontalFile) {
+    frontalSequence = await extractPoseSequence(frontalFile, {}, (p: ExtractProgress) => {
+      if (p.phase === 'decoding') {
+        report('trackingFrontal', '正在解碼正面影片…', 0);
+      } else if (p.phase === 'detecting') {
+        report(
+          'trackingFrontal',
+          `正在逐幀偵測關節點,正面影片(${p.processed} / ${p.total})…`,
+          p.total ? p.processed / p.total : 0,
+        );
+      }
+    });
+  }
+
   report('measuring', '正在計算步態指標…');
-  const metrics = computeGaitMetrics(sequence, heightCm);
+  const metrics = computeGaitMetrics(sequence, heightCm, frontalSequence);
 
   report('observing', '正在進行第二軌獨立影像判讀…');
   const trackB = await observeGaitFrames(sequence.keyFrames);

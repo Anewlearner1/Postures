@@ -327,7 +327,7 @@ function AppContent() {
     return [];
   }, []);
 
-  const runAnalysis = async (file: File) => {
+  const runAnalysis = async (file: File, frontalFile?: File) => {
     if (heightCm === null) return;
 
     setIsAnalyzing(true);
@@ -337,7 +337,7 @@ function AppContent() {
     setProgress({ stage: 'preparing', message: '準備中…', percent: 0 });
 
     try {
-      const result = await analyzeGaitVideo(file, heightCm, setProgress);
+      const result = await analyzeGaitVideo(file, heightCm, setProgress, frontalFile);
       setAnalysis(result.analysis);
       setKeyFrames(result.keyFrames);
 

@@ -10,7 +10,11 @@
  * Run with:  npm run verify:metrics
  */
 
-import { computeGaitMetrics, reconcileTracks } from '../src/services/gaitMetrics';
+import {
+  computeFrontalSupplement,
+  computeGaitMetrics,
+  reconcileTracks,
+} from '../src/services/gaitMetrics';
 import { LM } from '../src/services/landmarks';
 import type { Point3, PoseFrame, PoseSequence } from '../src/types/gait';
 
@@ -126,6 +130,87 @@ function buildWalker(opts: WalkerOptions): PoseSequence {
   };
 }
 
+const FRONTAL_HIP_HALF_WIDTH = 0.09;
+const FRONTAL_SHOULDER_HALF_WIDTH = 0.19;
+
+interface FrontalWalkerOptions {
+  durationSec: number;
+  fps: number;
+  periodSec: number;
+  /** Target mediolateral ankle separation, in meters. */
+  stepWidthM: number;
+  /**
+   * Peak pelvic obliquity magnitude, in degrees (0 = pelvis stays level).
+   * computeFrontalSupplement reports max(|obliquity|), a single-sided peak,
+   * not a peak-to-peak swing, so that is what this drives directly.
+   */
+  pelvicDropPeakDeg: number;
+  /** Half-amplitude of shoulder-over-hip lateral sway, in meters. */
+  trunkSwayHalfAmpM: number;
+}
+
+/**
+ * Frontal-view walker: the camera faces the subject, who walks straight
+ * toward or away from it. World x is mediolateral by construction (shoulders
+ * and hips separate almost entirely along x, matching detectView()'s
+ * definition of 'frontal'); world z (depth/travel direction) is irrelevant to
+ * every quantity computeFrontalSupplement() reads, so it is left at zero.
+ */
+function buildFrontalWalker(opts: FrontalWalkerOptions): PoseSequence {
+  const frames: PoseFrame[] = [];
+  const omega = (2 * Math.PI) / opts.periodSec;
+  const frameCount = Math.floor(opts.durationSec * opts.fps);
+
+  // computeFrontalSupplement reads obliquity as
+  // atan2(-(hipR.y - hipL.y), hipR.x - hipL.x); invert it here so the
+  // requested peak angle is what comes out the other end.
+  const hipDropAmpY =
+    2 * FRONTAL_HIP_HALF_WIDTH * Math.tan(opts.pelvicDropPeakDeg * (Math.PI / 180));
+
+  for (let i = 0; i < frameCount; i++) {
+    const t = i / opts.fps;
+    const world: Point3[] = Array.from({ length: 33 }, () => pt(0, 0, 0));
+    const phase = omega * t;
+
+    const hipDrop = hipDropAmpY * Math.sin(phase);
+    world[LM.leftHip] = pt(-FRONTAL_HIP_HALF_WIDTH, 0, 0);
+    world[LM.rightHip] = pt(FRONTAL_HIP_HALF_WIDTH, hipDrop, 0);
+
+    const sway = opts.trunkSwayHalfAmpM * Math.sin(phase * 0.5);
+    world[LM.leftShoulder] = pt(-FRONTAL_SHOULDER_HALF_WIDTH + sway, -0.5, 0);
+    world[LM.rightShoulder] = pt(FRONTAL_SHOULDER_HALF_WIDTH + sway, -0.5, 0);
+
+    world[LM.leftAnkle] = pt(-opts.stepWidthM / 2, ANKLE_Y_NEUTRAL, 0);
+    world[LM.rightAnkle] = pt(opts.stepWidthM / 2, ANKLE_Y_NEUTRAL, 0);
+    world[LM.leftKnee] = pt(-opts.stepWidthM / 4, ANKLE_Y_NEUTRAL / 2, 0);
+    world[LM.rightKnee] = pt(opts.stepWidthM / 4, ANKLE_Y_NEUTRAL / 2, 0);
+    world[LM.leftElbow] = pt(-FRONTAL_SHOULDER_HALF_WIDTH + sway, -0.2, 0);
+    world[LM.rightElbow] = pt(FRONTAL_SHOULDER_HALF_WIDTH + sway, -0.2, 0);
+    world[LM.leftWrist] = pt(-FRONTAL_SHOULDER_HALF_WIDTH + sway, 0.1, 0);
+    world[LM.rightWrist] = pt(FRONTAL_SHOULDER_HALF_WIDTH + sway, 0.1, 0);
+    world[LM.leftHeel] = world[LM.leftAnkle];
+    world[LM.rightHeel] = world[LM.rightAnkle];
+    world[LM.leftFootIndex] = world[LM.leftAnkle];
+    world[LM.rightFootIndex] = world[LM.rightAnkle];
+    world[LM.nose] = pt(0, NOSE_Y, 0);
+
+    // The subject stays centered in frame; only depth (z) would carry the
+    // approach/recession motion, which nothing under test reads.
+    const landmarks = world.map((p) => pt(0.5 + p.x * 0.15, 0.55 + p.y * 0.15, p.z));
+
+    frames.push({ t, landmarks, world, quality: 0.95 });
+  }
+
+  return {
+    frames,
+    fps: opts.fps,
+    durationSec: opts.durationSec,
+    videoWidth: 1280,
+    videoHeight: 720,
+    keyFrames: [],
+  };
+}
+
 // --- Assertions ------------------------------------------------------------
 
 let failures = 0;
@@ -139,6 +224,8 @@ function check(name: string, passed: boolean, detail: string) {
 function near(actual: number | null, expected: number, tolerance: number): boolean {
   return actual !== null && Math.abs(actual - expected) <= tolerance;
 }
+
+const round2 = (v: number) => Math.round(v * 100) / 100;
 
 // --- Case 1: symmetric walker ---------------------------------------------
 
@@ -367,6 +454,108 @@ check(
   '第二軌缺席時信心度下調而非中斷分析',
   reconcileTracks(m1, null).confidence < agreeing.confidence,
   `confidence without track B = ${reconcileTracks(m1, null).confidence}`,
+);
+
+// --- Case 5: frontal-view supplement ----------------------------------------
+
+console.log('\nCase 5 — synthetic frontal-view walker');
+
+const TARGET_STEP_WIDTH = 0.11;
+const NORMAL_PELVIC_PEAK = 2; // degrees — level pelvis, well under the 5° threshold
+const ABNORMAL_PELVIC_PEAK = 9; // degrees — clear Trendelenburg
+const SWAY_HALF_AMP = 0.03; // meters
+
+const frontalNormal = buildFrontalWalker({
+  durationSec: 8,
+  fps: 30,
+  periodSec: PERIOD,
+  stepWidthM: TARGET_STEP_WIDTH,
+  pelvicDropPeakDeg: NORMAL_PELVIC_PEAK,
+  trunkSwayHalfAmpM: SWAY_HALF_AMP,
+});
+
+const frontalAbnormal = buildFrontalWalker({
+  durationSec: 8,
+  fps: 30,
+  periodSec: PERIOD,
+  stepWidthM: TARGET_STEP_WIDTH,
+  pelvicDropPeakDeg: ABNORMAL_PELVIC_PEAK,
+  trunkSwayHalfAmpM: SWAY_HALF_AMP,
+});
+
+const supplementNormal = computeFrontalSupplement(frontalNormal.frames, HEIGHT_M * 100);
+const supplementAbnormal = computeFrontalSupplement(frontalAbnormal.frames, HEIGHT_M * 100);
+
+check(
+  '正面步行者的拍攝視角判定為正面',
+  supplementNormal.view === 'frontal',
+  `view = ${supplementNormal.view}, frontalness = ${round2(supplementNormal.frontalness)}`,
+);
+check(
+  `步寬還原至輸入值 ${TARGET_STEP_WIDTH} m`,
+  near(supplementNormal.stepWidthM, TARGET_STEP_WIDTH, 0.01),
+  `stepWidthM = ${supplementNormal.stepWidthM}`,
+);
+check(
+  `骨盆下沉(正常案例)還原至輸入峰值 ${NORMAL_PELVIC_PEAK}°`,
+  near(supplementNormal.pelvicDropDeg, NORMAL_PELVIC_PEAK, 1),
+  `pelvicDropDeg = ${supplementNormal.pelvicDropDeg}`,
+);
+check(
+  `骨盆下沉(異常案例)還原至輸入峰值 ${ABNORMAL_PELVIC_PEAK}°`,
+  near(supplementAbnormal.pelvicDropDeg, ABNORMAL_PELVIC_PEAK, 1),
+  `pelvicDropDeg = ${supplementAbnormal.pelvicDropDeg}`,
+);
+check(
+  '較大的骨盆下沉輸入使輸出跟著變大',
+  (supplementAbnormal.pelvicDropDeg ?? 0) > (supplementNormal.pelvicDropDeg ?? 0),
+  `normal = ${supplementNormal.pelvicDropDeg}°, abnormal = ${supplementAbnormal.pelvicDropDeg}°`,
+);
+check(
+  '軀幹側擺已產生非零數值',
+  (supplementNormal.trunkSwayDeg ?? 0) > 0.5,
+  `trunkSwayDeg = ${supplementNormal.trunkSwayDeg}`,
+);
+
+// --- Case 6: merging a supplementary frontal video --------------------------
+
+console.log('\nCase 6 — sagittal + frontal video merge');
+
+const sagittalOnly = computeGaitMetrics(symmetric, HEIGHT_M * 100);
+const merged = computeGaitMetrics(symmetric, HEIGHT_M * 100, frontalAbnormal);
+
+check(
+  '只有側面影片時,正面限定指標為 null',
+  sagittalOnly.stepWidthM === null &&
+    sagittalOnly.pelvicDropDeg === null &&
+    sagittalOnly.trunkSwayDeg === null &&
+    sagittalOnly.quality.frontalSource === 'none',
+  `stepWidth = ${sagittalOnly.stepWidthM}, pelvicDrop = ${sagittalOnly.pelvicDropDeg}, frontalSource = ${sagittalOnly.quality.frontalSource}`,
+);
+check(
+  '併入正面影片後,正面限定指標被填入且標記為補充來源',
+  merged.stepWidthM !== null &&
+    merged.pelvicDropDeg !== null &&
+    merged.trunkSwayDeg !== null &&
+    merged.quality.frontalSource === 'supplement',
+  `stepWidth = ${merged.stepWidthM}, pelvicDrop = ${merged.pelvicDropDeg}, trunkSway = ${merged.trunkSwayDeg}, frontalSource = ${merged.quality.frontalSource}`,
+);
+check(
+  '併入的骨盆下沉數值觸發 Trendelenburg 樣式偵測',
+  merged.patterns.some((p) => p.key === 'trendelenburg'),
+  `patterns = [${merged.patterns.map((p) => p.key).join(', ')}]`,
+);
+check(
+  '併入正面影片不影響側面影片本身算出的步頻與週期',
+  sagittalOnly.cadenceStepsPerMin === merged.cadenceStepsPerMin &&
+    sagittalOnly.gaitCycleTimeSec === merged.gaitCycleTimeSec &&
+    sagittalOnly.kinematics.left.knee?.rom === merged.kinematics.left.knee?.rom,
+  `cadence ${sagittalOnly.cadenceStepsPerMin} vs ${merged.cadenceStepsPerMin}, knee ROM ${sagittalOnly.kinematics.left.knee?.rom} vs ${merged.kinematics.left.knee?.rom}`,
+);
+check(
+  '正面影片視角不佳時會加上警告而非靜默採用',
+  computeFrontalSupplement(symmetric.frames, HEIGHT_M * 100).warnings.length > 0,
+  `warnings = ${JSON.stringify(computeFrontalSupplement(symmetric.frames, HEIGHT_M * 100).warnings)}`,
 );
 
 // --- Result ----------------------------------------------------------------

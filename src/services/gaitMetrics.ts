@@ -300,6 +300,83 @@ function computeScaleFactor(frames: PoseFrame[], heightCm: number): number {
   return heightCm / 100 / implied;
 }
 
+// --- Frontal-view supplement -------------------------------------------------
+
+export interface FrontalSupplement {
+  stepWidthM: number | null;
+  pelvicDropDeg: number | null;
+  trunkSwayDeg: number | null;
+  view: CameraView;
+  frontalness: number;
+  warnings: string[];
+}
+
+/**
+ * Step width, pelvic drop (Trendelenburg) and trunk sway, from a video shot
+ * facing the camera.
+ *
+ * Unlike the sagittal-video pipeline above, none of this needs gait-event
+ * detection or a travel-direction axis: a dedicated frontal video is shot by
+ * instructing the subject to walk straight toward or away from a fixed
+ * camera, so world x is always mediolateral by construction (MediaPipe's
+ * convention: +x is image-right) regardless of which way they are walking.
+ * That is what makes this a much smaller function than the sagittal one.
+ */
+export function computeFrontalSupplement(
+  frames: PoseFrame[],
+  heightCm: number,
+): FrontalSupplement {
+  const warnings: string[] = [];
+  const { view, frontalness } = detectView(frames);
+
+  if (view === 'sagittal') {
+    warnings.push(
+      '這段影片經偵測較接近側面視角,可能未依「面對或背對鏡頭直線行走」的方式拍攝,以下數值可信度較低。',
+    );
+  }
+
+  const scale = computeScaleFactor(frames, heightCm);
+
+  const trunkSway: number[] = [];
+  const pelvicObliquity: number[] = [];
+  const widths: number[] = [];
+
+  for (const f of frames) {
+    const w = f.world;
+    const shoulderMid = midpoint(w[LM.leftShoulder], w[LM.rightShoulder]);
+    const hipMid = midpoint(w[LM.leftHip], w[LM.rightHip]);
+
+    const up = -(shoulderMid.y - hipMid.y);
+    const acrossImage = shoulderMid.x - hipMid.x;
+    trunkSway.push((Math.atan2(acrossImage, up) * 180) / Math.PI);
+
+    const hipL = w[LM.leftHip];
+    const hipR = w[LM.rightHip];
+    pelvicObliquity.push((Math.atan2(-(hipR.y - hipL.y), hipR.x - hipL.x) * 180) / Math.PI);
+
+    const width = Math.abs(w[LM.leftAnkle].x - w[LM.rightAnkle].x) * scale;
+    if (width > 0.02 && width < 0.5) widths.push(width);
+  }
+
+  const trunkSwayDeg = trunkSway.length
+    ? round(Math.max(...trunkSway) - Math.min(...trunkSway))
+    : null;
+
+  const pelvicDropDeg = pelvicObliquity.length
+    ? round(Math.max(...smooth(pelvicObliquity, 5).map(Math.abs)))
+    : null;
+
+  const stepWidthM = round(mean(widths), 3);
+
+  if (Math.abs(scale - 1) > 0.4) {
+    warnings.push(
+      `正面視角影片的身高校正係數 ${round(scale, 2)} 偏離正常範圍,步寬與骨盆下沉數值僅供參考。`,
+    );
+  }
+
+  return { stepWidthM, pelvicDropDeg, trunkSwayDeg, view, frontalness, warnings };
+}
+
 // --- Gait events -----------------------------------------------------------
 
 /**
@@ -413,9 +490,8 @@ interface AngleSeries {
   knee: { left: number[]; right: number[] };
   ankle: { left: number[]; right: number[] };
   arm: { left: number[]; right: number[] };
+  /** Anterior-posterior lean. Only meaningful from a sagittal view. */
   trunkLean: number[];
-  trunkSway: number[];
-  pelvicObliquity: number[];
 }
 
 function computeAngleSeries(frames: PoseFrame[], boutSignAt: (i: number) => number): AngleSeries {
@@ -426,8 +502,6 @@ function computeAngleSeries(frames: PoseFrame[], boutSignAt: (i: number) => numb
     ankle: { left: [], right: [] },
     arm: { left: [], right: [] },
     trunkLean: [],
-    trunkSway: [],
-    pelvicObliquity: [],
   };
 
   frames.forEach((f, i) => {
@@ -466,17 +540,13 @@ function computeAngleSeries(frames: PoseFrame[], boutSignAt: (i: number) => numb
 
     const up = -(shoulderMid.y - hipMid.y);
     const acrossImage = shoulderMid.x - hipMid.x;
-    // In a sagittal view the image-horizontal axis is anterior-posterior; face
-    // on it is mediolateral. The same measurement means different things, so
-    // both are recorded and only the meaningful one is reported later.
+    // In a sagittal view the image-horizontal axis is anterior-posterior, so
+    // this is only meaningful (and only reported) when the primary video was
+    // shot side-on. The mediolateral equivalent — trunk sway, pelvic
+    // obliquity, step width — lives in computeFrontalSupplement() instead,
+    // computed straight off whichever video was actually shot facing the
+    // camera.
     series.trunkLean.push((Math.atan2(acrossImage * sign, up) * 180) / Math.PI);
-    series.trunkSway.push((Math.atan2(acrossImage, up) * 180) / Math.PI);
-
-    const hipL = w[LM.leftHip];
-    const hipR = w[LM.rightHip];
-    series.pelvicObliquity.push(
-      (Math.atan2(-(hipR.y - hipL.y), hipR.x - hipL.x) * 180) / Math.PI,
-    );
   });
 
   return series;
@@ -816,7 +886,18 @@ const riskFromScore = (score: number): RiskLevel =>
 
 // --- Entry point -----------------------------------------------------------
 
-export function computeGaitMetrics(seq: PoseSequence, heightCm: number): GaitMetrics {
+/**
+ * @param frontalSeq Optional dedicated frontal/backward-facing video. When
+ *   given, it is the sole source of step width, pelvic drop and trunk sway —
+ *   purpose-shot data beats whatever the primary video's incidental angle
+ *   might allow. Omit it and those three stay null unless the primary video
+ *   itself was shot frontally.
+ */
+export function computeGaitMetrics(
+  seq: PoseSequence,
+  heightCm: number,
+  frontalSeq?: PoseSequence,
+): GaitMetrics {
   const frames = seq.frames;
   const warnings: string[] = [];
 
@@ -909,34 +990,35 @@ export function computeGaitMetrics(seq: PoseSequence, heightCm: number): GaitMet
   };
 
   // --- trunk and pelvis ---
-  // Only the interpretation that matches the camera view is reported; the
-  // other axis is not observable from a single 2D viewpoint.
+  // trunkLean (anterior-posterior) only makes sense from a sagittal view of
+  // the primary video. Step width, pelvic drop and trunk sway need a frontal
+  // view instead; a dedicated second video is preferred over the primary
+  // video's incidental angle when one is supplied.
   const trunkLeanDeg =
     view === 'sagittal' ? round(mean(series.trunkLean)) : null;
-  const trunkSwayDeg =
-    view === 'frontal'
-      ? round(Math.max(...series.trunkSway) - Math.min(...series.trunkSway))
-      : null;
 
-  let pelvicDropDeg: number | null = null;
-  if (view === 'frontal' && series.pelvicObliquity.length) {
-    const obliquity = smooth(series.pelvicObliquity, 5).map(Math.abs);
-    pelvicDropDeg = round(Math.max(...obliquity));
-  } else if (view !== 'frontal') {
-    warnings.push(
-      '骨盆下沉 (Trendelenburg) 與步寬需要正面視角才能量測,本次未納入評估。',
-    );
-  }
-
+  let frontalSource: 'primary' | 'supplement' | 'none' = 'none';
   let stepWidthM: number | null = null;
-  if (view === 'frontal') {
-    const widths = events
-      .filter((e) => e.type === 'heelStrike')
-      .map((e) => frames[e.frameIndex])
-      .filter(Boolean)
-      .map((f) => Math.abs(f.world[LM.leftAnkle].x - f.world[LM.rightAnkle].x) * scale)
-      .filter((w) => w > 0.02 && w < 0.5);
-    stepWidthM = round(mean(widths), 3);
+  let pelvicDropDeg: number | null = null;
+  let trunkSwayDeg: number | null = null;
+
+  if (frontalSeq) {
+    const supplement = computeFrontalSupplement(frontalSeq.frames, heightCm);
+    frontalSource = 'supplement';
+    stepWidthM = supplement.stepWidthM;
+    pelvicDropDeg = supplement.pelvicDropDeg;
+    trunkSwayDeg = supplement.trunkSwayDeg;
+    warnings.push(...supplement.warnings);
+  } else if (view === 'frontal') {
+    const supplement = computeFrontalSupplement(frames, heightCm);
+    frontalSource = 'primary';
+    stepWidthM = supplement.stepWidthM;
+    pelvicDropDeg = supplement.pelvicDropDeg;
+    trunkSwayDeg = supplement.trunkSwayDeg;
+  } else {
+    warnings.push(
+      '骨盆下沉 (Trendelenburg)、步寬與軀幹側擺需要正面視角才能量測,本次未納入評估。可另外上傳一段正面走路影片以取得這些指標。',
+    );
   }
 
   // --- symmetry ---
@@ -980,6 +1062,7 @@ export function computeGaitMetrics(seq: PoseSequence, heightCm: number): GaitMet
     scaleFactor: round(scale, 3)!,
     effectiveFps: round(seq.fps)!,
     view,
+    frontalSource,
     warnings,
     score: round(qualityScore, 3)!,
   };

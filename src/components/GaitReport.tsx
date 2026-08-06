@@ -102,8 +102,9 @@ export function GaitReport({ analysis, keyFrames, onStartCoach }: Props) {
           <div>
             <h2 className="text-lg font-bold text-zinc-900 md:text-xl">步態分析結果</h2>
             <p className="mt-0.5 text-[11px] text-zinc-400">
-              拍攝視角 {VIEW_LABEL[metrics.quality.view]} · 完整週期 左 {metrics.quality.cyclesLeft} / 右{' '}
-              {metrics.quality.cyclesRight}
+              拍攝視角 {VIEW_LABEL[metrics.quality.view]}
+              {metrics.quality.frontalSource === 'supplement' && ' + 正面視角(輔助影片)'}
+              {' · '}完整週期 左 {metrics.quality.cyclesLeft} / 右 {metrics.quality.cyclesRight}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2 md:gap-3">
@@ -287,6 +288,12 @@ export function GaitReport({ analysis, keyFrames, onStartCoach }: Props) {
             value={metrics.pelvicDropDeg}
             unit="°"
             reference={metrics.pelvicDropDeg === null ? '需正面視角' : '參考 < 5'}
+          />
+          <StatTile
+            label="軀幹側擺"
+            value={metrics.trunkSwayDeg}
+            unit="°"
+            reference={metrics.trunkSwayDeg === null ? '需正面視角' : '參考峰對峰幅度'}
           />
         </div>
         <p className="text-[10px] leading-relaxed text-zinc-400">

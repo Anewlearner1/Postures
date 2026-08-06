@@ -114,6 +114,13 @@ export interface GaitQuality {
   scaleFactor: number;
   effectiveFps: number;
   view: CameraView;
+  /**
+   * Where step width, pelvic drop and trunk sway came from. These three need a
+   * frontal view: 'supplement' means a dedicated second video provided it,
+   * 'primary' means the main video itself happened to be shot frontally, and
+   * 'none' means they could not be measured this run.
+   */
+  frontalSource: 'primary' | 'supplement' | 'none';
   /** Human-readable problems found while processing. */
   warnings: string[];
   /** 0-1 overall confidence in the track A numbers. */
