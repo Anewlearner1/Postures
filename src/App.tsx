@@ -1,10 +1,14 @@
-import React, { useState, useRef, useCallback, useEffect, ErrorInfo, ReactNode } from 'react';
-import { Camera, Upload, RefreshCw, CheckCircle2, AlertCircle, ChevronRight, User, Activity, Info, History, Trash2, Calendar, Play, X, ChevronLeft, Timer, Lightbulb, LogIn, LogOut, ShieldCheck } from 'lucide-react';
+import React, { Suspense, lazy, useState, useRef, useCallback, useEffect, ErrorInfo, ReactNode } from 'react';
+import { Camera, Upload, RefreshCw, CheckCircle2, AlertCircle, ChevronRight, User, Activity, Info, History, Trash2, Calendar, Play, X, ChevronLeft, Timer, Lightbulb, LogIn, LogOut, ShieldCheck, Video, Image as ImageIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { analyzePosture, PostureAnalysis, Exercise } from './services/gemini';
 import { auth, db, googleProvider, appleProvider } from './firebase';
 import { signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { collection, addDoc, query, where, getDocs, onSnapshot, deleteDoc, doc, orderBy, limit, getDocFromServer, Timestamp } from 'firebase/firestore';
+
+// MediaPipe 推論套件較大，僅在使用者切到「即時步態偵測」時才載入，
+// 避免拖慢預設的靜態照片分析流程首次載入時間。
+const LiveGaitCapture = lazy(() => import('./components/LiveGaitCapture'));
 
 // --- Error Handling ---
 enum OperationType {
@@ -140,6 +144,7 @@ function AppContent() {
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [mode, setMode] = useState<'static' | 'live'>('static');
   const [isCoachMode, setIsCoachMode] = useState(false);
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [timer, setTimer] = useState(0);
@@ -507,8 +512,40 @@ function AppContent() {
           <p className="text-zinc-500 text-sm md:text-base max-w-2xl mx-auto px-4 md:px-0">
             透過正面與側面的照片，利用 AI 深度分析您的身體排列，檢測潛在的姿勢異常並提供專業建議。
           </p>
+
+          <div className="mt-6 inline-flex rounded-full bg-white border border-zinc-200 p-1 shadow-sm">
+            <button
+              onClick={() => setMode('static')}
+              className={`px-4 py-2 rounded-full text-xs md:text-sm font-semibold flex items-center gap-2 transition-all
+                ${mode === 'static' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:text-zinc-700'}`}
+            >
+              <ImageIcon size={14} /> 靜態照片分析
+            </button>
+            <button
+              onClick={() => setMode('live')}
+              className={`px-4 py-2 rounded-full text-xs md:text-sm font-semibold flex items-center gap-2 transition-all
+                ${mode === 'live' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:text-zinc-700'}`}
+            >
+              <Video size={14} /> 即時步態偵測（Beta）
+            </button>
+          </div>
         </header>
 
+        {mode === 'live' && (
+          <main className="max-w-3xl mx-auto">
+            <Suspense
+              fallback={
+                <div className="h-64 rounded-3xl border-2 border-dashed border-zinc-200 flex items-center justify-center text-zinc-400 text-sm">
+                  載入姿態偵測模型中...
+                </div>
+              }
+            >
+              <LiveGaitCapture />
+            </Suspense>
+          </main>
+        )}
+
+        {mode === 'static' && (
         <main className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-8">
           {/* Left Section: Upload or History */}
           <div className="lg:col-span-7 space-y-6">
@@ -871,6 +908,7 @@ function AppContent() {
             </AnimatePresence>
           </div>
         </main>
+        )}
 
         {/* Coach Mode Overlay */}
         <AnimatePresence>
