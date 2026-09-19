@@ -1,7 +1,8 @@
 import React, { useState, useRef, useCallback, useEffect, ErrorInfo, ReactNode } from 'react';
-import { Camera, Upload, RefreshCw, CheckCircle2, AlertCircle, ChevronRight, User, Activity, Info, History, Trash2, Calendar, Play, X, ChevronLeft, Timer, Lightbulb, LogIn, LogOut, ShieldCheck } from 'lucide-react';
+import { Camera, Upload, RefreshCw, CheckCircle2, AlertCircle, ChevronRight, User, Activity, Info, History, Trash2, Calendar, Play, X, ChevronLeft, Timer, Lightbulb, LogIn, LogOut, ShieldCheck, Footprints } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { analyzePosture, PostureAnalysis, Exercise } from './services/gemini';
+import GaitAnalyzer from './components/GaitAnalyzer';
 import { auth, db, googleProvider, appleProvider } from './firebase';
 import { signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { collection, addDoc, query, where, getDocs, onSnapshot, deleteDoc, doc, orderBy, limit, getDocFromServer, Timestamp } from 'firebase/firestore';
@@ -130,7 +131,10 @@ export default function App() {
   );
 }
 
+type AnalysisMode = 'posture' | 'gait';
+
 function AppContent() {
+  const [mode, setMode] = useState<AnalysisMode>('posture');
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [frontImage, setFrontImage] = useState<string | null>(null);
@@ -476,7 +480,7 @@ function AppContent() {
             )}
           </div>
 
-          <div className="absolute right-0 top-0 md:top-0">
+          <div className={`absolute right-0 top-0 md:top-0 ${mode === 'gait' ? 'hidden' : ''}`}>
             <button 
               onClick={() => setShowHistory(!showHistory)}
               className={`p-2 md:p-3 rounded-full transition-all flex items-center gap-2 text-xs md:text-sm font-medium
@@ -499,16 +503,41 @@ function AppContent() {
             className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[10px] md:text-xs font-semibold mb-3 md:mb-4"
           >
             <Activity size={12} className="md:w-[14px] md:h-[14px]" />
-            AI 姿勢檢測系統
+            {mode === 'gait' ? 'AI 步態檢測系統' : 'AI 姿勢檢測系統'}
           </motion.div>
           <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-zinc-900 mb-3 md:mb-4">
-            體態排列分析
+            {mode === 'gait' ? '步態動作分析' : '體態排列分析'}
           </h1>
           <p className="text-zinc-500 text-sm md:text-base max-w-2xl mx-auto px-4 md:px-0">
-            透過正面與側面的照片，利用 AI 深度分析您的身體排列，檢測潛在的姿勢異常並提供專業建議。
+            {mode === 'gait'
+              ? '直接上傳一段手機拍攝的走路影片，AI 會擷取連續畫面並分析您的步態週期、對稱性與代償問題。'
+              : '透過正面與側面的照片，利用 AI 深度分析您的身體排列，檢測潛在的姿勢異常並提供專業建議。'}
           </p>
         </header>
 
+        {/* Mode Tabs */}
+        <div className="flex justify-center mb-6 md:mb-8">
+          <div className="inline-flex p-1 bg-white border border-zinc-200 rounded-full shadow-sm">
+            <button
+              onClick={() => setMode('posture')}
+              className={`px-4 md:px-6 py-2 rounded-full text-xs md:text-sm font-bold flex items-center gap-2 transition-all
+                ${mode === 'posture' ? 'bg-zinc-900 text-white shadow' : 'text-zinc-500 hover:text-zinc-900'}`}
+            >
+              <User size={16} /> 體態分析
+            </button>
+            <button
+              onClick={() => setMode('gait')}
+              className={`px-4 md:px-6 py-2 rounded-full text-xs md:text-sm font-bold flex items-center gap-2 transition-all
+                ${mode === 'gait' ? 'bg-zinc-900 text-white shadow' : 'text-zinc-500 hover:text-zinc-900'}`}
+            >
+              <Footprints size={16} /> 步態分析
+            </button>
+          </div>
+        </div>
+
+        {mode === 'gait' ? (
+          <GaitAnalyzer user={user} />
+        ) : (
         <main className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-8">
           {/* Left Section: Upload or History */}
           <div className="lg:col-span-7 space-y-6">
@@ -871,6 +900,7 @@ function AppContent() {
             </AnimatePresence>
           </div>
         </main>
+        )}
 
         {/* Coach Mode Overlay */}
         <AnimatePresence>

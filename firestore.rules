@@ -21,6 +21,16 @@ service cloud.firestore {
     //   - recommendations: list (optional) - List of recommendations.
     //   - exercises: list (optional) - Recommended exercises.
     //
+    // Collection: gaitHistory
+    // Document ID: {gaitAnalysisId}
+    // Fields:
+    //   - userId: string (required) - The user ID who owns this analysis.
+    //   - timestamp: timestamp (required) - When the analysis was performed.
+    //   - poster: string (optional) - Base64 encoded still frame from the video.
+    //   - score: number (required) - Overall gait score.
+    //   - riskLevel: string (required, enum: ["低", "中", "高"]) - Calculated risk level.
+    //   - analysis: map (required) - Full gait analysis payload.
+    //
     // ===============================================================
 
     // ===============================================================
@@ -60,6 +70,20 @@ service cloud.firestore {
       allow read: if isDocOwner() || isAdmin();
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidAnalysis(request.resource.data);
       allow update: if isDocOwner() && isValidAnalysis(request.resource.data) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    function isValidGaitAnalysis(data) {
+      return data.userId is string &&
+             data.score is number &&
+             data.analysis is map &&
+             data.riskLevel in ["低", "中", "高"];
+    }
+
+    match /gaitHistory/{gaitAnalysisId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidGaitAnalysis(request.resource.data);
+      allow update: if isDocOwner() && isValidGaitAnalysis(request.resource.data) && request.resource.data.userId == resource.data.userId;
       allow delete: if isDocOwner() || isAdmin();
     }
 
