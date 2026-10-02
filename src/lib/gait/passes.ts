@@ -7,7 +7,7 @@
  *   5. 每一趟的髖寬比、腿長變化（§6.3 angle_off、§7.1 not_side_view）
  */
 
-import { ROLL, SEGMENTATION } from "@/lib/rules/thresholds";
+import { CONFIDENCE, ROLL, SEGMENTATION } from "@/lib/rules/thresholds";
 import { DEG2RAD, RAD2DEG, finite, linearSlope, mean, median, movingAverage, percentile } from "./math";
 import { JOINTS, LEG_JOINTS, type PointSeries, type Track } from "./preprocess";
 import type { PassDetail, Side, WalkDirection } from "./types";
@@ -198,6 +198,33 @@ export function rotateRange(track: Track, startIndex: number, endIndex: number, 
   }
 }
 
+/**
+ * §6.3 angle_off（M5 修正 A-4）：由透視幾何估計走道相對影像平面的偏轉角 ψ（度）。
+ * 近側腿長的像素長度與深度成反比，所以「相對深度」z̃ = L_中位數 / L(t)；
+ * 骨盆的橫向位置（以中位深度為單位）x̃ = (X_P − 畫面中心) · z̃ / f。走道是直線時 z̃ 對 x̃ 的斜率 = tan ψ。
+ * f（焦距像素）未知，以一般手機主鏡頭（1×、長邊視角約 69°）推估為長邊 × 0.73【推估】；f 估錯 ±15% 時 ψ 約差 ±15%。
+ */
+export function estimateYawDeg(track: Track, pass: { startIndex: number; endIndex: number; nearSide: Side }): number {
+  const { X } = pelvisSeries(track);
+  const f = CONFIDENCE.angleOff.assumedFocalFraction * Math.max(track.width, track.height);
+  const cx = track.width / 2;
+  const legs: number[] = [];
+  for (let k = pass.startIndex; k <= pass.endIndex; k++) legs.push(legLengthAt(track, pass.nearSide, k));
+  const legMedian = median(finite(legs));
+  if (!(legMedian > 0)) return NaN;
+  const xs: number[] = [];
+  const zs: number[] = [];
+  for (let k = pass.startIndex; k <= pass.endIndex; k++) {
+    const leg = legs[k - pass.startIndex];
+    if (!Number.isFinite(leg) || leg <= 0 || !Number.isFinite(X[k])) continue;
+    const z = legMedian / leg;
+    zs.push(z);
+    xs.push(((X[k] - cx) * z) / f);
+  }
+  const slope = linearSlope(xs, zs);
+  return Number.isFinite(slope) ? Math.abs(Math.atan(slope) * RAD2DEG) : NaN;
+}
+
 /** 切段＋近側＋roll 校正，回傳每一趟的完整資訊。會直接修改 track 的座標（roll 校正）。 */
 export function detectPasses(track: Track, L: number): Pass[] {
   return segmentPasses(track, L).map((segment, passIndex) => {
@@ -227,6 +254,7 @@ export function detectPasses(track: Track, L: number): Pass[] {
       nearSideAgreement: agreement,
       hipWidthRatio: median(hipRatios),
       legLengthVariation: legMedian > 0 ? (percentile(legs, 95) - percentile(legs, 5)) / legMedian : NaN,
+      yawDeg: estimateYawDeg(track, { startIndex, endIndex, nearSide: near }),
       usedAnkleFallback: false,
     };
   });

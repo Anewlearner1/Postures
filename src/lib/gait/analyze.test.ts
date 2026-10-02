@@ -218,7 +218,8 @@ describe("可信度降級原因（§6.3）", () => {
     { name: "影格率 20 fps", options: { fps: 20 }, reason: "low_fps", level: "low" },
     { name: "影格率 25 fps", options: { fps: 25 }, reason: "low_fps", level: "medium" },
     { name: "近側下肢 visibility 0.7", options: { jointVisibility: { near: { knee: 0.7, ankle: 0.7, heel: 0.7, toe: 0.7 } } }, reason: "occlusion", level: "medium" },
-    { name: "鏡頭偏離矢狀面 20°", options: { walkwayYawDeg: 20 }, reason: "angle_off", level: "low" },
+    { name: "鏡頭偏離矢狀面 20°", options: { walkwayYawDeg: 20 }, reason: "angle_off", level: "medium" },
+    { name: "鏡頭偏離矢狀面 30°", options: { walkwayYawDeg: 30 }, reason: "angle_off", level: "low" },
     { name: "人太小（相機 7 m）", options: { cameraDistanceM: 7 }, reason: "subject_small", level: "medium" },
     { name: "關鍵點跳動大（雜訊 8 px）", options: { noisePx: 8 }, reason: "low_light", level: "low" },
     { name: "步頻不規則", options: { paceWobble: 0.12 }, reason: "irregular_pace", level: "low" },
@@ -370,6 +371,12 @@ describe("拒絕並請重拍（§7.1）", () => {
 
   it.each([15, 60])("換人（骨架跳到另一個人）在 %s fps 也偵測得到", (fps) => {
     expect(reject(generateWalk({ passes: 3, fps, identitySwitches: 3, noisePx: 2 }))).toBe("multi_person");
+  });
+
+  it("M5（A-3）手機 3 m、走道 4.5 m：轉身時走出畫面不算，照常分析並以 partial_out_of_frame 降低可信度", () => {
+    const outcome = analyzeGait(...(({ frames, meta }) => [frames, meta] as const)(generateWalk({ passes: 3, cameraDistanceM: 3, walkwayM: 4.5, noisePx: 2 })));
+    expect(outcome.status).toBe("ok");
+    if (outcome.status === "ok") expect(outcome.result.confidence.reasons).toContain("partial_out_of_frame");
   });
 
   it("no_gait_cycle：側面站著不動", () => {

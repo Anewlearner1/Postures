@@ -2,7 +2,7 @@
  * 這個檔案做什麼：
  *   嚴重度分級規則（docs/spec/gait-rules.md §2.6、§3.3、§4.3、§5.3、§8）：
  *   - 各指標的「正常／輕度／明顯」判斷（閾值在 thresholds.ts）
- *   - 「接近臨界」near_threshold：數值在任一分級界線 ±1.5° 內（§3.3）
+ *   - 「接近臨界」near_threshold：數值在任一分級界線的帶寬內（§3.3；M5 起帶寬依量測不確定度 1.5–3°）
  *   - D29 有效週期防護：該側（或軀幹合計）有效週期 < 2 時最多「輕度」
  *   - D23／D31：PHE 偏小但 TE ≥ 12 且 TRK ≥ 7 → 不判髖伸展不足，歸因於軀幹前傾（每側先做）
  *   - D26 跨側彙總：整體 = 較重的一側；代表數值取決定整體分級那一側（同級取較接近異常方向者）
@@ -16,6 +16,7 @@ import {
   HIP_EXTENSION,
   KNEE_STANCE,
   KNEE_SWING,
+  NEAR_THRESHOLD_ADAPTIVE,
   NEAR_THRESHOLD_BAND_DEG,
   TRUNK,
 } from "./thresholds";
@@ -85,8 +86,20 @@ export const BOUNDARIES = {
 } as const;
 
 /** §3.3「接近臨界」：任一分級界線 ±1.5° 以內。 */
-export function isNearThreshold(value: number, boundaries: readonly number[]): boolean {
-  return boundaries.some((boundary) => Math.abs(value - boundary) <= NEAR_THRESHOLD_BAND_DEG + 1e-9);
+export function isNearThreshold(value: number, boundaries: readonly number[], bandDeg: number = NEAR_THRESHOLD_BAND_DEG): boolean {
+  return boundaries.some((boundary) => Math.abs(value - boundary) <= bandDeg + 1e-9);
+}
+
+/**
+ * M5：依週期間變異決定「接近臨界」帶寬（中位數 95% 信賴區間半寬，限制在 1.5–3°）。
+ * values = 決定分級那一側（或軀幹全部）各有效週期的數值。
+ */
+export function nearThresholdBand(values: readonly number[]): number {
+  const { minDeg, maxDeg, z, medianSeFactor } = NEAR_THRESHOLD_ADAPTIVE;
+  if (values.length < 2) return maxDeg;
+  const m = values.reduce((a, b) => a + b, 0) / values.length;
+  const sd = Math.sqrt(values.reduce((acc, v) => acc + (v - m) ** 2, 0) / (values.length - 1));
+  return Math.min(maxDeg, Math.max(minDeg, (z * medianSeFactor * sd) / Math.sqrt(values.length)));
 }
 
 /** 異常方向：PHE、PKF_sw 越小越不好；KIC、TRK 越大越不好。 */

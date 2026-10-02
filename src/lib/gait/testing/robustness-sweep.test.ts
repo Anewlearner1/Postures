@@ -9,7 +9,8 @@
  *   GAIT_SWEEP_PROFILES=normal,hipMarked   只跑部分步態（預設全部）
  *
  * 每一列只改一個拍攝條件（其餘維持 BASELINE），表格中的數字是比例：
- *   誤拒 = 被要求重拍；誤報 = 正常卻被標成問題；漏判 = 有問題卻判常見範圍內；低可信 = 可信度「較低」。
+ *   誤拒 = 被要求重拍；誤報 = 正常卻被標成問題；漏判 = 有問題卻判常見範圍內；低可信 = 可信度「較低」；
+ *   近 = 有誤報的試次中，誤報項目全部標了「接近分界」（報告會用「參考就好」的保守說法）的比例。
  * 結果整理在 docs/review/M5-qa.md。
  */
 
@@ -28,6 +29,8 @@ function cell(summary: ConditionSummary, expectsProblem: boolean): string {
   const parts = [`拒${pct(summary.rejectRate)}`];
   parts.push(expectsProblem ? `漏${pct(summary.missRate)}` : `誤${pct(summary.falsePositiveRate)}`);
   if (summary.lowConfidenceRate > 0) parts.push(`低${pct(summary.lowConfidenceRate)}`);
+  // 誤報中有標「接近分界」（報告用保守說法）的比例
+  if (!expectsProblem && summary.falsePositiveRate > 0) parts.push(`近${pct(summary.falsePositiveNearThresholdRate)}`);
   const codes = Object.entries(summary.rejectCodes)
     .map(([code, n]) => `${code}×${n}`)
     .join(",");

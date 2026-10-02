@@ -5,7 +5,7 @@
  *     1. earlyReject：too_short → low_fps_reject → no_person → multi_person（有 poseCount 的直接證據）
  *     2. sideViewReject：not_side_view（需要先切直線段）
  *     3. qualityReject：multi_person（骨架跳動推測）→ body_incomplete
- *     4. cycleReject：no_gait_cycle
+ *     4. cycleReject：no_gait_cycle（沒有有效週期、且每一趟走道偏轉角 > 30° 時改報 not_side_view，M5）
  *   not_side_view 放在「骨架跳動推測的 multi_person」與 body_incomplete 之前：正面／背面走時人常很小、
  *   關鍵點跳動大，鼻子也常看不到，若先判這兩項，使用者會收到錯誤的重拍理由（真人背影影片曾被判 multi_person）。
  *   量測值由 `src/lib/gait/quality.ts` 計算。
@@ -55,6 +55,9 @@ export function sideViewReject(passHipRatios: readonly number[], bodyWidthRatioN
 }
 
 /** §7.1：通過 §2.4 檢查的完整週期 = 0 → no_gait_cycle（D13 底線）。 */
-export function cycleReject(validCyclesTotal: number): RejectCode | undefined {
-  return validCyclesTotal > 0 ? undefined : "no_gait_cycle";
+export function cycleReject(validCyclesTotal: number, passYawDeg: readonly number[] = []): RejectCode | undefined {
+  if (validCyclesTotal > 0) return undefined;
+  // M5（A-6）：有在走、卻沒有任何完整週期，而且走道明顯斜對鏡頭 → 真正的原因是拍攝角度
+  if (passYawDeg.length > 0 && passYawDeg.every((yaw) => yaw > REJECT.noCycleNotSideViewYawDeg)) return "not_side_view";
+  return "no_gait_cycle";
 }

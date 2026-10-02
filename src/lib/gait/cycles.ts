@@ -10,7 +10,7 @@
 import { CYCLE_CHECK, PHASE, SEGMENTATION } from "@/lib/rules/thresholds";
 import { hipAngle, kneeAngle, segmentAngleDown, segmentAngleUp } from "./angles";
 import type { PassEvents } from "./events";
-import { mean } from "./math";
+import { mean, parabolicOffset } from "./math";
 import { pelvisSeries, type Pass } from "./passes";
 import type { Track } from "./preprocess";
 import type { CycleDetail, GaitMetrics } from "./types";
@@ -64,7 +64,25 @@ function extremum(track: Track, pass: Pass, from: number, to: number, key: Angle
     }
   }
   if (bestK < 0 || count < (to - from + 1) / 2) return undefined;
-  return { value: best, timeSec: track.t[bestK] };
+  return refineExtremum(track, pass, bestK, key, mode);
+}
+
+/**
+ * 次幀精細化（M5，A-1／A-8）：以極值格與前後兩格做拋物線內插，求出真正的峰值／谷值與時間。
+ * 影格率低或走得快時，峰值常落在兩格之間，只取格點會讓 PKF_sw 低估、KIC 高估。
+ * 只有在中間格確實是局部極值時才內插，否則直接用格點值。
+ */
+export function refineExtremum(track: Track, pass: Pass, k: number, key: AngleKey, mode: "min" | "max") {
+  const value = framesAngles(track, pass, k)[key];
+  const fallback = { value, timeSec: track.t[k] };
+  if (k <= 0 || k >= track.n - 1) return fallback;
+  const a = framesAngles(track, pass, k - 1)[key];
+  const c = framesAngles(track, pass, k + 1)[key];
+  if (!Number.isFinite(a) || !Number.isFinite(c)) return fallback;
+  const isExtremum = mode === "min" ? value <= a && value <= c : value >= a && value >= c;
+  if (!isExtremum) return fallback;
+  const offset = parabolicOffset([a, value, c], 1);
+  return { value: value - 0.25 * (a - c) * offset, timeSec: track.t[k] + offset * track.dt };
 }
 
 function average(track: Track, pass: Pass, from: number, to: number, key: AngleKey): number | undefined {
@@ -109,16 +127,19 @@ export function computeCycleMetrics(
     timesSec.PKF_sw = round2(kneeMax.timeSec);
   }
 
-  // 初始著地：HS 幀 ±1 幀平均
+  // 初始著地（M5 修正 A-1）：在 HS ± 40 毫秒（至少 ±1 格）內找膝角的局部最小值，再做拋物線次幀內插。
+  // 原規格「HS ±1 幀平均」在著地這個膝角最小值附近取平均，必然偏高，且影格越少、走越快偏越多
+  // （合成資料 30 fps +3°、15 fps +5–9°）。著地瞬間膝角接近擺盪末期伸直的最小值（§4.1），
+  // 事件偵測誤差約 ±1 格（Zeni 2008），所以在小視窗內找最小值比固定取平均更準。
+  const kicHalf = Math.max(1, Math.round(PHASE.kicSearchSec / track.dt));
   const k0 = indexAt(track, hs);
-  const kicValues: number[] = [];
-  for (let k = k0 - PHASE.kicHalfWindowFrames; k <= k0 + PHASE.kicHalfWindowFrames; k++) {
-    if (k < 0 || k >= track.n) continue;
+  let kicBest = -1;
+  for (let k = Math.max(0, k0 - kicHalf); k <= Math.min(track.n - 1, k0 + kicHalf); k++) {
     const value = framesAngles(track, pass, k).knee;
-    if (Number.isFinite(value)) kicValues.push(value);
+    if (Number.isFinite(value) && (kicBest < 0 || value < framesAngles(track, pass, kicBest).knee)) kicBest = k;
   }
-  if (kicValues.length > 0) {
-    metrics.KIC = mean(kicValues);
+  if (kicBest >= 0) {
+    metrics.KIC = refineExtremum(track, pass, kicBest, "knee", "min").value;
     timesSec.KIC = round2(hs);
   }
 

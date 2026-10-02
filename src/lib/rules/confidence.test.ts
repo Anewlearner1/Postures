@@ -19,7 +19,7 @@ import {
 
 const GOOD: ConfidenceMeasurements = {
   hipWidthRatio: 0.1,
-  legLengthVariation: 0.02,
+  yawDeg: 3,
   nearVisibility: 0.95,
   interpolatedFraction: 0,
   nearSideDisagreement: false,
@@ -53,7 +53,9 @@ describe("因子分級（§6.3）", () => {
 
   it.each([
     ["angle_off", { hipWidthRatio: 0.2 }, "medium"],
-    ["angle_off", { legLengthVariation: 0.25 }, "low"],
+    ["angle_off", { yawDeg: 20 }, "medium"],
+    ["angle_off", { yawDeg: 30 }, "low"],
+    ["angle_off", { yawDeg: 12 }, "high"],
     ["occlusion", { nearVisibility: 0.7 }, "medium"],
     ["occlusion", { interpolatedFraction: 0.2 }, "low"],
     ["occlusion", { nearSideDisagreement: true }, "medium"],
@@ -135,5 +137,21 @@ describe("指標層級可信度（§6.4）", () => {
     expect(metricConfidence(computeFactors(GOOD), "high", {}, true)).toBe("medium");
     expect(downgrade("medium")).toBe("low");
     expect(downgrade("low")).toBe("low");
+  });
+
+  it("M5（A-7）人小時關鍵點跳動歸因於「人太小」：low_light 不列，subject_small 取較差者", () => {
+    const f = computeFactors({ ...GOOD, subjectHeightFraction: 0.2, jitterLeg: 0.02 });
+    expect(f.low_light.level).toBe("high");
+    expect(f.subject_small.level).toBe("low");
+  });
+  it("M5（A-7）人小（中）＋跳動（中）合併為「低」，不讓整體可信度因改名而變好", () => {
+    const f = computeFactors({ ...GOOD, subjectHeightFraction: 0.4, jitterLeg: 0.02 });
+    expect(f.subject_small.level).toBe("low");
+    expect(f.low_light.level).toBe("high");
+  });
+  it("人不小時，跳動照常算 low_light", () => {
+    const f = computeFactors({ ...GOOD, jitterLeg: 0.03 });
+    expect(f.low_light.level).toBe("low");
+    expect(f.subject_small.level).toBe("high");
   });
 });

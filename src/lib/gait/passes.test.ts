@@ -64,6 +64,17 @@ describe("鏡頭 roll 估計（§1.5）", () => {
     for (const pass of passes) expect(Math.abs(pass.rollDeg - rollDeg)).toBeLessThan(0.5);
   });
 
+  it.each([
+    { yaw: 0, options: {} },
+    { yaw: 10, options: {} },
+    { yaw: 20, options: {} },
+    { yaw: 10, options: { cameraDistanceM: 6 } },
+    { yaw: 10, options: { width: 1080, height: 1920, walkwayM: 3 } },
+  ])("M5（A-4）走道偏轉角估計：真值 $yaw° $options → 誤差 < 3°", ({ yaw, options }) => {
+    const { passes } = passesFor({ passes: 2, walkwayYawDeg: yaw, noisePx: 3, ...options });
+    for (const pass of passes) expect(Math.abs(pass.yawDeg - yaw)).toBeLessThan(3);
+  });
+
   it("正側面拍攝的髖寬比小、腿長變化小；鏡頭偏 20° 時腿長變化大（angle_off）", () => {
     const side = passesFor({ passes: 2 }).passes;
     expect(side.every((p) => p.hipWidthRatio < 0.15 && p.legLengthVariation < 0.1)).toBe(true);

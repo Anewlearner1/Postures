@@ -31,6 +31,7 @@ import {
   gradeTrunk,
   isNearThreshold,
   maxSeverity,
+  nearThresholdBand,
   pickDecidingSide,
   severityRank,
   type SideMetricGrade,
@@ -163,6 +164,9 @@ export function buildFindings(input: FindingsInput): FindingsOutput {
   for (const s of sides) sideGrades[s.side] = { side: s.side, validCycles: s.cycles.length };
   const findings: Finding[] = [];
   const TRK = input.trunk.TRK;
+  const sideCycles = (name: Side) => input.sides[name]?.cycles ?? [];
+  const bandFor = (cycles: readonly CycleDetail[], key: "PHE" | "PKF_sw" | "KIC" | "TRK") =>
+    nearThresholdBand(cycles.map((cycle) => cycle.metrics[key]).filter((v): v is number => v !== undefined));
 
   // ---- 髖伸展（§3.3；D23、D31、D29；D26） ----
   const hipGrades: SideMetricGrade[] = [];
@@ -189,7 +193,7 @@ export function buildFindings(input: FindingsInput): FindingsOutput {
         hipDecider.severity,
         { PHE: round1(hipDecider.value) },
         input.metricConfidence.hip,
-        isNearThreshold(hipDecider.value, BOUNDARIES.PHE),
+        isNearThreshold(hipDecider.value, BOUNDARIES.PHE, bandFor(sideCycles(hipDecider.side), "PHE")),
         causesFor(HIP_CAUSES, hipDecider.severity, input.slowSpeed, input.populationCaveat ? "pain_guarding" : undefined),
         timestampsFor(
           abnormalSides.flatMap((s) => s.cycles),
@@ -232,7 +236,7 @@ export function buildFindings(input: FindingsInput): FindingsOutput {
   if (swingDecider) {
     swingSeverity = swingDecider.severity;
     swingValue = swingDecider.value;
-    swingNear = isNearThreshold(swingDecider.value, BOUNDARIES.PKF_sw);
+    swingNear = isNearThreshold(swingDecider.value, BOUNDARIES.PKF_sw, bandFor(sideCycles(swingDecider.side), "PKF_sw"));
     swingSides = swingGrades.filter((grade) => grade.severity !== "normal").map((grade) => grade.side);
     const both = swingGrades.length === 2 && swingGrades.every((grade) => grade.validCycles >= KNEE_SWING.asymmetryMinCyclesPerSide);
     if (both) {
@@ -242,7 +246,11 @@ export function buildFindings(input: FindingsInput): FindingsOutput {
         const lower = swingGrades[0].value <= swingGrades[1].value ? swingGrades[0] : swingGrades[1];
         swingSeverity = maxSeverity(swingSeverity, dSeverity);
         swingValue = lower.value;
-        swingNear = isNearThreshold(dPKF, BOUNDARIES.dPKF);
+        swingNear = isNearThreshold(
+          dPKF,
+          BOUNDARIES.dPKF,
+          Math.max(bandFor(sideCycles("left"), "PKF_sw"), bandFor(sideCycles("right"), "PKF_sw")),
+        );
         swingSides = [lower.side];
       }
     }
@@ -275,7 +283,7 @@ export function buildFindings(input: FindingsInput): FindingsOutput {
         stanceDecider.severity,
         { KIC: round1(stanceDecider.value) },
         input.metricConfidence.kneeStance,
-        isNearThreshold(stanceDecider.value, BOUNDARIES.KIC),
+        isNearThreshold(stanceDecider.value, BOUNDARIES.KIC, bandFor(sideCycles(stanceDecider.side), "KIC")),
         causesFor(KNEE_STANCE_CAUSES, stanceDecider.severity, input.slowSpeed, kneeRefer),
         timestampsFor(
           sides.filter((s) => sideGrades[s.side]?.kneeStance?.severity !== "normal").flatMap((s) => s.cycles),
@@ -294,7 +302,7 @@ export function buildFindings(input: FindingsInput): FindingsOutput {
       severity,
       { TRK: round1(TRK) },
       input.metricConfidence.trunk,
-      isNearThreshold(TRK, BOUNDARIES.TRK),
+      isNearThreshold(TRK, BOUNDARIES.TRK, bandFor(input.trunk.cycles, "TRK")),
       causesFor(TRUNK_CAUSES, severity, false, input.populationCaveat ? "pain_balance_osteoporosis" : undefined),
       timestampsFor(input.trunk.cycles, "TRK", (value) => value >= TRUNK.mildMin),
     );

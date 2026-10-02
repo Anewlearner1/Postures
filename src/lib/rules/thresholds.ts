@@ -102,8 +102,11 @@ export const CYCLE_CHECK = {
 export const PHASE = {
   /** 承重期 = HS → HS + 15% 週期；支撐中後期從 HS + 15% 開始 */
   loadingResponseFraction: 0.15,
-  /** KIC 取 HS 幀 ±1 幀平均 */
-  kicHalfWindowFrames: 1,
+  /**
+   * KIC（M5 修正 A-1）：在 HS ± 40 毫秒（至少 ±1 格）內找膝角局部最小值＋拋物線次幀內插。
+   * 原規格為「HS ±1 幀平均」，會系統性高估（30 fps +3°、15 fps +5–9°）。
+   */
+  kicSearchSec: 0.04,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -159,6 +162,20 @@ export const TRUNK_PERSISTENT = {
 /** §3.3「接近臨界」：任一分級界線 ±1.5° 以內【推估】 */
 export const NEAR_THRESHOLD_BAND_DEG = 1.5;
 
+/**
+ * M5：「接近臨界」帶寬改為依量測不確定度調整（不改分級閾值）【推估】。
+ * 帶寬 = 中位數的 95% 信賴區間半寬 = 1.96 × 1.2533 × 週期間標準差 ÷ √n，
+ * 下限 1.5°（原規格值）、上限 3°（約 1 個 2D MAE）；只有 1 個週期（無法估標準差）時用上限 3°。
+ * 用意：數值和界線的差距在量測誤差範圍內時，報告一律用「參考就好」的保守說法。
+ */
+export const NEAR_THRESHOLD_ADAPTIVE = {
+  minDeg: NEAR_THRESHOLD_BAND_DEG,
+  maxDeg: 3,
+  z: 1.96,
+  /** 中位數的標準誤約為平均數的 1.2533 倍（常態分布） */
+  medianSeFactor: 1.2533,
+} as const;
+
 /** D29：該側有效週期 < 2 時嚴重度最多「輕度」 */
 export const CYCLE_GUARD_MIN_CYCLES = 2;
 
@@ -176,9 +193,16 @@ export const CONFIDENCE = {
     /** (a) 髖寬比 |X_LH − X_RH| ÷ 軀幹長：< 0.15 高；0.15–0.30 中；> 0.30 低 */
     hipRatioHigh: 0.15,
     hipRatioMedium: 0.3,
-    /** (b) 同一趟腿長像素變化：< 10% 高；10–20% 中；> 20% 低（以第 95／5 百分位數代替最大／最小值，抗雜訊） */
-    legVarHigh: 0.1,
-    legVarMedium: 0.2,
+    /**
+     * (b)（M5 修正 A-4）改用「走道偏轉角 ψ」：≤ 15° 高；15–25° 中；> 25° 低。
+     * 依 §6.1 的投影公式 θ' = atan(tan θ · cos ψ)：ψ = 15° 時 60° 的膝屈曲只少約 0.9°、20° 的髖伸展少約 0.6°（< 1°）；
+     * ψ = 25° 時分別少約 2.5°、1.6°（接近 1 個 2D MAE）；30° 以上超過 2D MAE。
+     * 原本的「腿長像素變化 > 20% 即低」受走道長度與距離影響，偏 10° 時就幾乎一律判低（QA 合成測試 100%）。
+     */
+    yawHighDeg: 15,
+    yawMediumDeg: 25,
+    /** 推估焦距（像素）= 影像長邊 × 0.73（一般手機主鏡頭 1×，長邊視角約 69°）【推估】 */
+    assumedFocalFraction: 0.73,
   },
   occlusion: {
     /** 近側必要關鍵點平均 visibility：≥ 0.80 高；0.65–0.80 中；< 0.65 低 */
@@ -270,6 +294,11 @@ export const REJECT = {
   minFps: 15,
   /** 所有直線段的髖寬比 > 0.5 → not_side_view */
   notSideViewHipRatio: 0.5,
+  /**
+   * M5（A-6）：沒有任何有效週期、且每一趟的走道偏轉角估計 > 30°（angle_off 已是「低」的範圍）時，
+   * 拒絕代碼改為 not_side_view（原本報 no_gait_cycle，使用者會以為是走不夠）【推估】
+   */
+  noCycleNotSideViewYawDeg: 30,
   /** 沒有直線段時，身體寬度比（肩、髖）中位數 > 此值 → 判定為正面／背面朝鏡頭（not_side_view）【推估】 */
   noPassFrontalRatio: 0.35,
   /** multi_person：有 poseCount 時，≥ 2 人的影格佔偵測影格 ≥ 50%【推估】 */

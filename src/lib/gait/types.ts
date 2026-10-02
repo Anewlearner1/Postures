@@ -329,8 +329,10 @@ export interface PassDetail extends WalkingPass {
   nearSideAgreement: boolean;
   /** 這一趟的髖寬比中位數（§6.3 angle_off (a)、§7.1 not_side_view）。 */
   hipWidthRatio: number;
-  /** 這一趟的腿長像素變化 (L_p95 − L_p5)/L_med（§6.3 angle_off (b)）。 */
+  /** 這一趟的腿長像素變化 (L_p95 − L_p5)/L_med（M3 的 angle_off (b)；M5 起只存內部參考）。 */
   legLengthVariation: number;
+  /** 走道相對影像平面的偏轉角估計（度，§6.3 angle_off (b)，M5）。 */
+  yawDeg: number;
   /** 事件偵測是否改用腳踝點（腳跟或腳尖看不清時，§2.1）。 */
   usedAnkleFallback: boolean;
 }

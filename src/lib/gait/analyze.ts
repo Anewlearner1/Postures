@@ -33,6 +33,7 @@ import { buildTrack, type Joint } from "./preprocess";
 import {
   bodyWidthRatio,
   cadence,
+  completeBodyFractionInPasses,
   confidenceMeasurements,
   cycleFrames,
   headObservationStatus,
@@ -65,6 +66,7 @@ function toPassDetail(pass: Pass): PassDetail {
     nearSideAgreement: pass.nearSideAgreement,
     hipWidthRatio: pass.hipWidthRatio,
     legLengthVariation: pass.legLengthVariation,
+    yawDeg: pass.yawDeg,
     usedAnkleFallback: pass.usedAnkleFallback,
   };
 }
@@ -105,6 +107,11 @@ export function analyzeGait(
     passes.length > 0 ? 0 : bodyWidthRatio(track),
   );
   if (sideView) return { status: "rejected", code: sideView, details: { ...rejectDetails, passes: passes.length } };
+  const inPasses = completeBodyFractionInPasses(track, passes);
+  if (inPasses !== undefined) {
+    rejectStats.completeBodyFraction = inPasses;
+    rejectDetails.completeBodyFraction = inPasses;
+  }
   const quality = qualityReject(rejectStats);
   if (quality) return { status: "rejected", code: quality, details: { ...rejectDetails, passes: passes.length } };
 
@@ -123,7 +130,7 @@ export function analyzeGait(
     cycles.push(...passCycles);
   }
   const usedCycles = cycles.filter((cycle) => cycle.used);
-  const noCycle = cycleReject(usedCycles.length);
+  const noCycle = cycleReject(usedCycles.length, finite(passes.map((pass) => pass.yawDeg)));
   if (noCycle) {
     return { status: "rejected", code: noCycle, details: { ...rejectDetails, passes: passes.length, validCycles: 0 } };
   }

@@ -53,4 +53,9 @@ describe("拍攝角度與週期", () => {
     expect(cycleReject(0)).toBe("no_gait_cycle");
     expect(cycleReject(1)).toBeUndefined();
   });
+  it("M5（A-6）：沒有有效週期、且每一趟走道都斜對鏡頭 > 30° → not_side_view", () => {
+    expect(cycleReject(0, [38, 42])).toBe("not_side_view");
+    expect(cycleReject(0, [38, 12])).toBe("no_gait_cycle");
+    expect(cycleReject(2, [38, 42])).toBeUndefined();
+  });
 });

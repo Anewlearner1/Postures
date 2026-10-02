@@ -30,6 +30,35 @@ function likelyNear(track: Track, k: number): Side {
   return sum("left") >= sum("right") ? "left" : "right";
 }
 
+/** §7.1「全身完整」：頭（鼻或任一耳）＋近側肩髖膝踝跟尖 visibility ≥ 0.5 且都在畫面內。 */
+function isCompleteBody(track: Track, k: number): boolean {
+  if (!track.detected[k]) return false;
+  const near = likelyNear(track, k);
+  const head =
+    (track.nose.vis[k] >= PREPROCESS.minVisibility && track.nose.inFrame[k] === 1) ||
+    rawOk(track, "left", "ear", k) ||
+    rawOk(track, "right", "ear", k);
+  return head && BODY_JOINTS.every((joint) => rawOk(track, near, joint, k));
+}
+
+/**
+ * M5（A-3）：只在「直線行走段」內計算全身完整比例。轉身與站立時人常走到畫面邊緣或出畫，
+ * 但那些影格本來就不分析，不應讓影片被拒絕；直線段內出畫由 partial_out_of_frame 與週期邊緣檢查處理。
+ * 沒有直線段時回傳 undefined（沿用整段影片的比例）。
+ */
+export function completeBodyFractionInPasses(track: Track, passes: readonly Pass[]): number | undefined {
+  let frames = 0;
+  let complete = 0;
+  for (const pass of passes) {
+    for (let k = pass.startIndex; k <= pass.endIndex; k++) {
+      if (!track.hasFrame[k]) continue;
+      frames++;
+      if (isCompleteBody(track, k)) complete++;
+    }
+  }
+  return frames > 0 ? complete / frames : undefined;
+}
+
 export function rejectMeasurements(track: Track, durationSec: number): RejectMeasurements {
   let frames = 0;
   let detected = 0;
@@ -45,12 +74,7 @@ export function rejectMeasurements(track: Track, durationSec: number): RejectMea
     }
     if (!track.detected[k]) continue;
     detected++;
-    const near = likelyNear(track, k);
-    const head =
-      (track.nose.vis[k] >= PREPROCESS.minVisibility && track.nose.inFrame[k] === 1) ||
-      rawOk(track, "left", "ear", k) ||
-      rawOk(track, "right", "ear", k);
-    if (head && BODY_JOINTS.every((joint) => rawOk(track, near, joint, k))) complete++;
+    if (isCompleteBody(track, k)) complete++;
   }
 
   // 骨架整體跳動（疑似換成另一個人，§7.1 multi_person）：
@@ -225,7 +249,7 @@ export function confidenceMeasurements(input: QualityInputs): ConfidenceMeasurem
 
   return {
     hipWidthRatio: hipRatios.length > 0 ? median(hipRatios) : undefined,
-    legLengthVariation: usedPasses.length > 0 ? Math.max(...finite(usedPasses.map((pass) => pass.legLengthVariation)), 0) : undefined,
+    yawDeg: usedPasses.length > 0 ? median(finite(usedPasses.map((pass) => pass.yawDeg))) : undefined,
     nearVisibility: Number.isFinite(vis.visibility) ? vis.visibility : undefined,
     interpolatedFraction: vis.interpolated,
     nearSideDisagreement: usedPasses.some((pass) => !pass.nearSideAgreement),

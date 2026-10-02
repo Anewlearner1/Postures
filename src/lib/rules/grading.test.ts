@@ -14,6 +14,7 @@ import {
   gradeTRK,
   gradeTrunk,
   isNearThreshold,
+  nearThresholdBand,
   pickDecidingSide,
 } from "./grading";
 
@@ -143,5 +144,25 @@ describe("軀幹分級的附加條件（§5.3）", () => {
   it("鏡頭歪斜可信度低時最多輕度", () => {
     expect(gradeTrunk(15, 4, true)).toBe("mild");
     expect(gradeTrunk(15, 4, false)).toBe("marked");
+  });
+});
+
+describe("M5：依量測不確定度調整的「接近臨界」帶寬", () => {
+  it("週期數值一致時用下限 1.5°", () => {
+    expect(nearThresholdBand([10, 10.2, 9.9, 10.1])).toBe(1.5);
+  });
+  it("週期間差異大時加寬（中位數 95% 信賴區間半寬），最多 3°", () => {
+    const band = nearThresholdBand([8, 12, 10, 11]); // SD ≈ 1.71 → 1.96 × 1.2533 × 1.71 / 2 ≈ 2.1
+    expect(band).toBeGreaterThan(2);
+    expect(band).toBeLessThan(2.2);
+    expect(nearThresholdBand([0, 10, 20])).toBe(3);
+  });
+  it("只有 1 個週期（無法估變異）時用上限 3°", () => {
+    expect(nearThresholdBand([10])).toBe(3);
+    expect(nearThresholdBand([])).toBe(3);
+  });
+  it("帶寬套用在界線判斷", () => {
+    expect(isNearThreshold(14.5, BOUNDARIES.PHE)).toBe(false);
+    expect(isNearThreshold(14.5, BOUNDARIES.PHE, 3)).toBe(true);
   });
 });

@@ -70,6 +70,8 @@ export interface TrialOutcome {
   falsePositives: ProblemKey[];
   /** 漏判的項目（有問題卻被判常見範圍內）。 */
   misses: ProblemKey[];
+  /** 誤報的項目中，報告有標「接近分界」（near_threshold，用保守說法）的項目（M5 新增）。 */
+  falsePositivesNearThreshold: ProblemKey[];
   confidence: "high" | "medium" | "low" | null;
 }
 
@@ -78,20 +80,24 @@ export function runTrial(profile: GaitProfile, options: SyntheticOptions): Trial
   const sim = generateWalk({ ...options, gait: { ...profile.gait, ...options.gait } });
   const outcome = analyzeGait(sim.frames, sim.meta);
   if (outcome.status !== "ok") {
-    return { rejected: outcome.code, correct: {}, falsePositives: [], misses: [], confidence: null };
+    return { rejected: outcome.code, correct: {}, falsePositives: [], misses: [], falsePositivesNearThreshold: [], confidence: null };
   }
   const correct: TrialOutcome["correct"] = {};
   const falsePositives: ProblemKey[] = [];
   const misses: ProblemKey[] = [];
+  const falsePositivesNearThreshold: ProblemKey[] = [];
   for (const [key, expected] of Object.entries(profile.expectProblem) as Array<[ProblemKey, boolean]>) {
     const severity = severityOf(outcome.result.findings, key);
     // 髖伸展被歸因於軀幹前傾（D31）時沒有 finding，當作「未標記」
     const flagged = severity === "mild" || severity === "marked";
     correct[key] = flagged === expected;
-    if (!expected && flagged) falsePositives.push(key);
+    if (!expected && flagged) {
+      falsePositives.push(key);
+      if (findingFor(outcome.result.findings, key)?.nearThreshold) falsePositivesNearThreshold.push(key);
+    }
     if (expected && !flagged) misses.push(key);
   }
-  return { rejected: null, correct, falsePositives, misses, confidence: outcome.result.confidence.overall };
+  return { rejected: null, correct, falsePositives, misses, falsePositivesNearThreshold, confidence: outcome.result.confidence.overall };
 }
 
 export interface ConditionSummary {
@@ -106,6 +112,8 @@ export interface ConditionSummary {
   /** 有分析的試次中：可信度為「低」的比例。 */
   lowConfidenceRate: number;
   falsePositiveItems: Record<string, number>;
+  /** 有誤報的試次中，所有誤報項目都標了「接近分界」的比例（M5 新增）。 */
+  falsePositiveNearThresholdRate: number;
 }
 
 /** 同一條件跑多個 seed，彙總成比例。 */
@@ -125,6 +133,10 @@ export function runCondition(profile: GaitProfile, options: SyntheticOptions, se
     missRate: rate(analysed.filter((o) => o.misses.length > 0).length, analysed.length),
     lowConfidenceRate: rate(analysed.filter((o) => o.confidence === "low").length, analysed.length),
     falsePositiveItems,
+    falsePositiveNearThresholdRate: rate(
+      analysed.filter((o) => o.falsePositives.length > 0 && o.falsePositivesNearThreshold.length === o.falsePositives.length).length,
+      analysed.filter((o) => o.falsePositives.length > 0).length,
+    ),
   };
 }
 

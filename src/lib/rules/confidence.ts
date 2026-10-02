@@ -48,8 +48,8 @@ export function levelLowerWorse(value: number | undefined, high: number, medium:
 export interface ConfidenceMeasurements {
   /** angle_off (a)：有效週期的髖寬比中位數。 */
   hipWidthRatio?: number;
-  /** angle_off (b)：有效週期所在各趟的腿長變化最大值。 */
-  legLengthVariation?: number;
+  /** angle_off (b)：有效週期所在各趟的走道偏轉角估計中位數（度，M5）。 */
+  yawDeg?: number;
   /** occlusion：近側必要關鍵點平均 visibility。 */
   nearVisibility?: number;
   /** occlusion：近側必要關鍵點被內插的比例。 */
@@ -109,23 +109,30 @@ export function computeFactors(m: ConfidenceMeasurements): ConfidenceFactors {
   const c = CONFIDENCE;
   const angleOff = minConfidence(
     levelHigherWorse(m.hipWidthRatio, c.angleOff.hipRatioHigh, c.angleOff.hipRatioMedium),
-    levelHigherWorse(m.legLengthVariation, c.angleOff.legVarHigh, c.angleOff.legVarMedium),
+    levelHigherWorse(m.yawDeg, c.angleOff.yawHighDeg, c.angleOff.yawMediumDeg),
   );
   const pace = levelHigherWorse(m.paceCV, c.irregularPace.high, c.irregularPace.medium);
+  // 關鍵點跳動（low_light 的代理量測）以腿長正規化：人很小時同樣的像素跳動會被放大。
+  // M5（A-7）：人在畫面中偏小時，把跳動歸因於「距離太遠」——跳動等級併入 subject_small，low_light 不另外列，
+  // 避免在沒有光線問題時告訴使用者「畫面比較暗」。可信度的嚴重程度不變。
+  let subjectSmall = levelLowerWorse(m.subjectHeightFraction, c.subjectSmall.high, c.subjectSmall.medium);
+  let lowLight = levelHigherWorse(m.jitterLeg, c.lowLight.high, c.lowLight.medium);
+  if (subjectSmall !== "high" && lowLight !== "high") {
+    // 兩者都是「中」時合併為「低」：原本兩個「中」因子的影響不因改名而消失（人小又抖動，誤差明顯上升）
+    subjectSmall = subjectSmall === "medium" && lowLight === "medium" ? "low" : minConfidence(subjectSmall, lowLight);
+    lowLight = "high";
+  }
   return {
     angle_off: { level: angleOff, value: m.hipWidthRatio },
     occlusion: { level: occlusionLevel(m.nearVisibility, m.interpolatedFraction, m.nearSideDisagreement), value: m.nearVisibility },
     few_cycles: { level: fewCyclesLevel(m.cyclesLeft, m.cyclesRight), value: m.cyclesLeft + m.cyclesRight },
     high_variability: { level: variabilityLevel(m.maxStdDev), value: m.maxStdDev },
-    subject_small: {
-      level: levelLowerWorse(m.subjectHeightFraction, c.subjectSmall.high, c.subjectSmall.medium),
-      value: m.subjectHeightFraction,
-    },
+    subject_small: { level: subjectSmall, value: m.subjectHeightFraction },
     partial_out_of_frame: {
       level: levelHigherWorse(m.outOfFrameFraction, c.partialOutOfFrame.high, c.partialOutOfFrame.medium),
       value: m.outOfFrameFraction,
     },
-    low_light: { level: levelHigherWorse(m.jitterLeg, c.lowLight.high, c.lowLight.medium), value: m.jitterLeg },
+    low_light: { level: lowLight, value: m.jitterLeg },
     camera_motion: {
       level: levelHigherWorse(m.rollRangeDeg, c.cameraMotion.high, c.cameraMotion.medium),
       value: m.rollRangeDeg,
