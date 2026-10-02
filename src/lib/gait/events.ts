@@ -12,7 +12,7 @@ import { findPeaks, parabolicOffset } from "./math";
 import type { Pass } from "./passes";
 import { pelvisSeries } from "./passes";
 import type { Track } from "./preprocess";
-import type { GaitEvent } from "./types";
+import type { GaitEvent, Side } from "./types";
 
 function validFraction(values: Float64Array, startIndex: number, endIndex: number): number {
   let count = 0;
@@ -26,10 +26,10 @@ export interface PassEvents {
   usedAnkleFallback: boolean;
 }
 
-/** 對單一趟的近側偵測 HS 與 TO（回傳時間，秒）。 */
-export function detectPassEvents(track: Track, pass: Pass, L: number): PassEvents {
-  const { startIndex, endIndex, direction: d, nearSide } = pass;
-  const limb = track.side[nearSide];
+/** 對單一趟的近側（或指定側）偵測 HS 與 TO（回傳時間，秒）。 */
+export function detectPassEvents(track: Track, pass: Pass, L: number, side: Side = pass.nearSide): PassEvents {
+  const { startIndex, endIndex, direction: d } = pass;
+  const limb = track.side[side];
   const pelvis = pelvisSeries(track);
   const minFraction = EVENTS.footPointMinValidFraction;
   const useAnkle =
@@ -68,4 +68,23 @@ export function toGaitEvents(pass: Pass, events: PassEvents): GaitEvent[] {
     ...events.toeOffs.map((timeSec) => ({ type: "toe_off" as const, side: pass.nearSide, passIndex: pass.passIndex, timeSec })),
   ];
   return list.sort((a, b) => a.timeSec - b.timeSec);
+}
+
+/**
+ * 這一趟的步數（左右腳的初始著地合計，供報告「分析了幾步」）。
+ * 近側 HS 已偵測；遠側只為了計數再偵測一次（不用來算指標，§0.6）。
+ * 遠側點常被遮擋：遠側資料不足、或遠側 HS 數和近側差超過 1 時，改以「近側 HS × 2」估計。
+ */
+export function countPassSteps(track: Track, pass: Pass, L: number, near: PassEvents): number {
+  const nearCount = near.heelStrikes.length;
+  const far: Side = pass.nearSide === "left" ? "right" : "left";
+  const limb = track.side[far];
+  const usable =
+    validFraction(limb.ankle.X, pass.startIndex, pass.endIndex) >= EVENTS.footPointMinValidFraction &&
+    validFraction(limb.hip.X, pass.startIndex, pass.endIndex) >= EVENTS.footPointMinValidFraction;
+  if (usable) {
+    const farCount = detectPassEvents(track, pass, L, far).heelStrikes.length;
+    if (Math.abs(farCount - nearCount) <= 1) return nearCount + farCount;
+  }
+  return nearCount * 2;
 }

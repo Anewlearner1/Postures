@@ -118,3 +118,23 @@ export const SAMPLE_REPORT_BANNER =
 
 /** AI 報告產生失敗、改用模板文字時，報告頂部的小提示（UX §5.9）。 */
 export const AI_FALLBACK_NOTICE = "白話說明目前暫時無法產生，以下為標準版說明。分析結果不受影響。";
+
+/**
+ * 下載報告（D21、D43：列印樣式表＋瀏覽器「儲存為 PDF」，不經伺服器）。【待審閱】
+ * 各平台按鈕名稱可能因瀏覽器版本略有不同。
+ */
+export const DOWNLOAD_COPY = {
+  button: "下載報告",
+  howToTitle: "怎麼存成 PDF？",
+  howTo: [
+    "電腦：在列印視窗的「目的地」選「儲存為 PDF」，再按「儲存」。",
+    "iPhone（Safari、Chrome）：在「列印選項」畫面點上方的「分享」圖示，選「儲存到檔案」。",
+    "Android（Chrome）：在上方的印表機選單選「儲存為 PDF」，再按下載圖示。",
+  ],
+  privacy: "報告在你的裝置上產生，不會上傳；下載的報告不含影片。",
+  inApp: "App 內建瀏覽器（例如 LINE）可能無法下載，請先用 Safari 或 Chrome 開啟本網站。",
+  unsupported: "這個瀏覽器無法下載報告，請改用 Chrome、Safari 或 Edge。",
+  generatedAt: (date: string) => `產生日期：${date}`,
+  keyframeCaption: "影片中的關鍵畫面（白線是分析時找到的關節位置）",
+  printFooter: "本報告由瀏覽器在使用者的裝置上產生，不含影片。",
+} as const;

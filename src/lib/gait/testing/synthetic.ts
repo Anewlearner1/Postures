@@ -93,6 +93,8 @@ export interface SyntheticOptions {
   noisePx?: number;
   nearVisibility?: number;
   farVisibility?: number;
+  /** 鼻子的 visibility（背影時鼻子看不到，例如 0.2）。 */
+  noseVisibility?: number;
   /** 指定某些關節的 visibility（near = 近側、far = 遠側）。 */
   jointVisibility?: Partial<Record<"near" | "far", Partial<Record<SyntheticJoint, number>>>>;
   /** 近側下肢短暫遮擋（visibility 0.2）的影格比例（每次 2–6 格）。 */
@@ -595,6 +597,7 @@ export function generateWalk(options: SyntheticOptions = {}): SyntheticResult {
         const override = o.jointVisibility?.[isNear ? "near" : "far"]?.[jointName];
         if (override !== undefined) visibility = override;
       }
+      if (i === LANDMARK.nose && o.noseVisibility !== undefined) visibility = o.noseVisibility;
       if (x < 0 || x > 1 || y < 0 || y > 1) visibility = Math.min(visibility, 0.2);
       landmarks.push({ x, y, z: ((Z - zMid) * o.focalPx) / zMid / o.width, visibility });
     }

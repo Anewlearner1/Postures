@@ -53,38 +53,46 @@ export function rejectMeasurements(track: Track, durationSec: number): RejectMea
     if (head && BODY_JOINTS.every((joint) => rawOk(track, near, joint, k))) complete++;
   }
 
-  // 骨架整體跳動：骨盆單幀位移 > 0.5 L，或軀幹長度驟變 > 35%（疑似換成另一個人，§7.1 multi_person）
+  // 骨架整體跳動（疑似換成另一個人，§7.1 multi_person）：
+  // 比較候選換人點「前 w 格」與「後 w 格」（w 見 REJECT.identityWindowFrames）的骨盆位置中位數與軀幹長度中位數，
+  // 骨盆移動 > 0.5 L 或軀幹長度變化 > 35% 才算一次跳動。用中位數而不是逐格比較，
+  // 是為了不讓「人很小＋關鍵點雜訊大」（例如遠處的背影）被誤判成換人。
   const L0 = roughLegLength(track.side, track.n, true);
   const maxGap = Math.max(1, Math.round(PREPROCESS.maxGapSec * track.fps)) + 1;
-  let jumps = 0;
-  let prev = -1;
-  const pelvisRaw = (k: number) => {
-    const L = track.side.left.hip;
-    const R = track.side.right.hip;
-    return [(L.rawX[k] + R.rawX[k]) / 2, (L.rawY[k] + R.rawY[k]) / 2];
-  };
-  const trunkRaw = (k: number) => {
-    const s = track.side;
-    return Math.hypot(
-      (s.left.shoulder.rawX[k] + s.right.shoulder.rawX[k]) / 2 - (s.left.hip.rawX[k] + s.right.hip.rawX[k]) / 2,
-      (s.left.shoulder.rawY[k] + s.right.shoulder.rawY[k]) / 2 - (s.left.hip.rawY[k] + s.right.hip.rawY[k]) / 2,
+  const s = track.side;
+  const samples: Array<{ k: number; x: number; y: number; trunk: number }> = [];
+  for (let k = 0; k < track.n; k++) {
+    const x = (s.left.hip.rawX[k] + s.right.hip.rawX[k]) / 2;
+    const y = (s.left.hip.rawY[k] + s.right.hip.rawY[k]) / 2;
+    const trunk = Math.hypot(
+      (s.left.shoulder.rawX[k] + s.right.shoulder.rawX[k]) / 2 - x,
+      (s.left.shoulder.rawY[k] + s.right.shoulder.rawY[k]) / 2 - y,
     );
-  };
+    if ([x, y, trunk].every(Number.isFinite)) samples.push({ k, x, y, trunk });
+  }
+  const w = REJECT.identityWindowFrames;
+  let jumps = 0;
   if (L0 > 0) {
-    for (let k = 0; k < track.n; k++) {
-      const [x, y] = pelvisRaw(k);
-      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
-      if (prev >= 0 && k - prev <= maxGap) {
-        const [px, py] = pelvisRaw(prev);
-        const trunkNow = trunkRaw(k);
-        const trunkPrev = trunkRaw(prev);
-        const scaleJump =
-          Number.isFinite(trunkNow) && Number.isFinite(trunkPrev) && trunkPrev > 0
-            ? Math.abs(trunkNow / trunkPrev - 1) > REJECT.identityScaleJump
-            : false;
-        if (Math.hypot(x - px, y - py) > REJECT.identityJumpLeg * L0 || scaleJump) jumps++;
+    let i = w;
+    while (i + w <= samples.length) {
+      const window = samples.slice(i - w, i + w);
+      const contiguous = window.every((sample, j) => j === 0 || sample.k - window[j - 1].k <= maxGap);
+      if (!contiguous) {
+        i++;
+        continue;
       }
-      prev = k;
+      const before = window.slice(0, w);
+      const after = window.slice(w);
+      const med = (list: typeof before, key: "x" | "y" | "trunk") => median(list.map((item) => item[key]));
+      const move = Math.hypot(med(after, "x") - med(before, "x"), med(after, "y") - med(before, "y"));
+      const trunkBefore = med(before, "trunk");
+      const scaleJump = trunkBefore > 0 && Math.abs(med(after, "trunk") / trunkBefore - 1) > REJECT.identityScaleJump;
+      if (move > REJECT.identityJumpLeg * L0 || scaleJump) {
+        jumps++;
+        i += w; // 同一次換人只算一次
+      } else {
+        i++;
+      }
     }
   }
 

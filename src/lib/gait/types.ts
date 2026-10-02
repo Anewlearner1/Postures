@@ -283,6 +283,11 @@ export interface AnalysisResult {
     validCyclesTotal: number;
     /** 走得偏慢：只附註，不調整嚴重度（D27）。 */
     slowSpeed: boolean;
+    /**
+     * 分析到的步數：所有直線段內偵測到的初始著地（左右腳合計；轉身與停頓不算，gait-rules.md §2.8）。
+     * 只給本機報告顯示「分析了幾步」，不送 API。選填是為了相容舊資料（示範資料沒有）。
+     */
+    stepsAnalyzed?: number;
   };
   /** 使用者是否屬於提醒族群（孕婦、神經方面狀況、正在疼痛，D30）。 */
   populationCaveat: boolean;

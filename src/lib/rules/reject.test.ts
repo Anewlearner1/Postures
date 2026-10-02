@@ -2,7 +2,7 @@
  * 拒絕規則的單元測試（gait-rules.md §7.1）。整條管線的拒絕情境另見 src/lib/gait/analyze.test.ts。
  */
 import { describe, expect, it } from "vitest";
-import { cycleReject, earlyReject, sideViewReject, type RejectMeasurements } from "./reject";
+import { cycleReject, earlyReject, qualityReject, sideViewReject, type RejectMeasurements } from "./reject";
 
 const OK: RejectMeasurements = {
   durationSec: 12,
@@ -21,16 +21,22 @@ describe("影片層級拒絕", () => {
     [{ fps: 14 }, "low_fps_reject"],
     [{ detectedFraction: 0.49 }, "no_person"],
     [{ multiPoseFraction: 0.6 }, "multi_person"],
-    [{ identityJumps: 4 }, "multi_person"],
-    [{ completeBodyFraction: 0.59 }, "body_incomplete"],
   ] as const)("%o → %s", (change, code) => {
     expect(earlyReject({ ...OK, ...change })).toBe(code);
+  });
+  it.each([
+    [{ identityJumps: 4 }, "multi_person"],
+    [{ completeBodyFraction: 0.59 }, "body_incomplete"],
+  ] as const)("確認側面之後：%o → %s", (change, code) => {
+    expect(earlyReject({ ...OK, ...change })).toBeUndefined();
+    expect(qualityReject({ ...OK, ...change })).toBe(code);
   });
   it("依序判斷：太短優先於沒有人", () => {
     expect(earlyReject({ ...OK, durationSec: 3, detectedFraction: 0 })).toBe("too_short");
   });
   it("剛好在門檻上不拒絕（6 秒、15 fps、50%、60%）", () => {
     expect(earlyReject({ ...OK, durationSec: 6, fps: 15, detectedFraction: 0.5, completeBodyFraction: 0.6 })).toBeUndefined();
+    expect(qualityReject({ ...OK, identityJumps: 3, completeBodyFraction: 0.6 })).toBeUndefined();
   });
 });
 

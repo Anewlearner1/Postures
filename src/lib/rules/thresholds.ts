@@ -264,8 +264,13 @@ export const REJECT = {
   noPassFrontalRatio: 0.35,
   /** multi_person：有 poseCount 時，≥ 2 人的影格佔偵測影格 ≥ 50%【推估】 */
   multiPersonFrameFraction: 0.5,
-  /** multi_person：沒有 poseCount 時，骨盆單幀跳動 > 0.5 L（或軀幹長度驟變 > 35%）的次數 ≥ 4【推估】 */
+  /**
+   * multi_person：沒有 poseCount 時，比較候選換人點前、後各 5 格的中位數（換人需持續 ≥ 3 格才會被看到），
+   * 骨盆移動 > 0.5 L 或軀幹長度變化 > 35% 算一次跳動，次數 ≥ 4 判定【推估】。
+   * 用前後視窗中位數（而非逐格比較）避免人很小、雜訊大的影片被誤判（M4 修正背影誤判）。
+   */
   identityJumpLeg: 0.5,
   identityScaleJump: 0.35,
   identityJumpCount: 4,
+  identityWindowFrames: 5,
 } as const;

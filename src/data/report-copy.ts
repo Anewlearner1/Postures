@@ -119,3 +119,21 @@ export const EXTRA_REPORT_NOTES = {
   /** 同一個練習已列在前面的卡片時，後面的卡片只放這句。 */
   seeOtherCard: "見「{CARD}」卡片。",
 } as const;
+
+/** 問題卡片底部「查看數據」（D44、UX §4.3.0；只用本機結果，不送 API）。 */
+export const METRICS_COPY = {
+  title: "查看數據",
+  note: "這是從 2D 影片估算的角度，可能有幾度的誤差。",
+} as const;
+
+/**
+ * 全部在常見範圍內時，取代問題卡片位置的鼓勵文案（D37：第一版不給維持型練習，UX §4.4 改為鼓勵文案）。
+ * 【待審閱】UX 文件沒有現成範本。
+ */
+export const ALL_NORMAL_COPY = {
+  title: "想保持好狀態？",
+  paragraphs: [
+    "繼續保持規律走路和平常的活動量，就是維持現在走路姿勢最好的方法。",
+    "如果之後走路時開始覺得哪裡不舒服，或姿勢有明顯改變，可以再拍一次影片比較看看，或諮詢物理治療師。",
+  ],
+} as const;

@@ -1,8 +1,13 @@
 /**
  * 這個檔案做什麼：
  *   拒絕並請重拍的判斷（docs/spec/gait-rules.md §7.1、SPEC D13 底線）。任一成立就不出報告。
- *   判斷順序：too_short → low_fps_reject → no_person → multi_person → body_incomplete
- *            → not_side_view → no_gait_cycle（先擋「影片本身」問題，再擋「拍法」問題）。
+ *   判斷順序（M4 調整）：
+ *     1. earlyReject：too_short → low_fps_reject → no_person → multi_person（有 poseCount 的直接證據）
+ *     2. sideViewReject：not_side_view（需要先切直線段）
+ *     3. qualityReject：multi_person（骨架跳動推測）→ body_incomplete
+ *     4. cycleReject：no_gait_cycle
+ *   not_side_view 放在「骨架跳動推測的 multi_person」與 body_incomplete 之前：正面／背面走時人常很小、
+ *   關鍵點跳動大，鼻子也常看不到，若先判這兩項，使用者會收到錯誤的重拍理由（真人背影影片曾被判 multi_person）。
  *   量測值由 `src/lib/gait/quality.ts` 計算。
  */
 
@@ -22,12 +27,17 @@ export interface RejectMeasurements {
   completeBodyFraction: number;
 }
 
-/** 影片層級的拒絕（不需要切段就能判斷）。 */
+/** 影片層級、有直接證據的拒絕（不需要切段就能判斷）。 */
 export function earlyReject(m: RejectMeasurements): RejectCode | undefined {
   if (!(m.durationSec >= REJECT.minDurationSec)) return "too_short";
   if (!(m.fps >= REJECT.minFps)) return "low_fps_reject";
   if (!(m.detectedFraction >= REJECT.minDetectedFraction)) return "no_person";
   if (m.multiPoseFraction !== undefined && m.multiPoseFraction >= REJECT.multiPersonFrameFraction) return "multi_person";
+  return undefined;
+}
+
+/** 在拍攝角度確認是側面之後才判斷的拒絕：骨架跳動推測的 multi_person、body_incomplete。 */
+export function qualityReject(m: RejectMeasurements): RejectCode | undefined {
   if (m.identityJumps >= REJECT.identityJumpCount) return "multi_person";
   if (!(m.completeBodyFraction >= REJECT.minCompleteBodyFraction)) return "body_incomplete";
   return undefined;

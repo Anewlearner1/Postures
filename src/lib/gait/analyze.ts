@@ -22,11 +22,11 @@ import {
   variabilityLevel,
 } from "@/lib/rules/confidence";
 import { buildFindings } from "@/lib/rules/findings";
-import { cycleReject, earlyReject, sideViewReject } from "@/lib/rules/reject";
+import { cycleReject, earlyReject, qualityReject, sideViewReject } from "@/lib/rules/reject";
 import { RULES_VERSION, SLOW_SPEED_LEG_PER_SEC, STANDARD_LABEL } from "@/lib/rules/thresholds";
 import { aggregateAll, aggregateSides } from "./aggregate";
 import { applyAccelerationRule, buildPassCycles } from "./cycles";
-import { detectPassEvents, toGaitEvents } from "./events";
+import { countPassSteps, detectPassEvents, toGaitEvents } from "./events";
 import { finite } from "./math";
 import { detectPasses, legLength, type Pass } from "./passes";
 import { buildTrack, type Joint } from "./preprocess";
@@ -105,13 +105,17 @@ export function analyzeGait(
     passes.length > 0 ? 0 : bodyWidthRatio(track),
   );
   if (sideView) return { status: "rejected", code: sideView, details: { ...rejectDetails, passes: passes.length } };
+  const quality = qualityReject(rejectStats);
+  if (quality) return { status: "rejected", code: quality, details: { ...rejectDetails, passes: passes.length } };
 
   // ---- §2.3 事件、§2.4 週期、§2.5 指標 ----
   const events: GaitEvent[] = [];
   const cycles: CycleDetail[] = [];
   let accelerationCyclesKept = false;
+  let stepsAnalyzed = 0;
   for (const pass of passes) {
     const passEvents = detectPassEvents(track, pass, L);
+    stepsAnalyzed += countPassSteps(track, pass, L, passEvents);
     pass.usedAnkleFallback = passEvents.usedAnkleFallback;
     events.push(...toGaitEvents(pass, passEvents));
     const passCycles = buildPassCycles(track, pass, passEvents, L);
@@ -190,7 +194,7 @@ export function analyzeGait(
     rulesVersion: RULES_VERSION,
     standardLabel: STANDARD_LABEL,
     confidence: { overall, display: displayFor(overall), reasons },
-    walking: { passes: passes.length, validCyclesTotal: usedCycles.length, slowSpeed },
+    walking: { passes: passes.length, validCyclesTotal: usedCycles.length, slowSpeed, stepsAnalyzed },
     populationCaveat: options.populationCaveat === true,
     findings: built.findings,
     observations: [{ item: "head_forward", status: headObservationStatus(usedCycles) }],
