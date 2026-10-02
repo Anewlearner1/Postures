@@ -4,7 +4,7 @@
  *   再補上只存在瀏覽器裡的影片資訊（步數、影片長度、時間軸標記），組成報告頁要顯示的 ReportView。
  *
  *   - 送出的資料只有分析結果（toReportRequest 會濾掉內部數值與左右側資訊），不含影像。
- *   - 連不到伺服器或伺服器出錯時，改在瀏覽器裡用模板文字組報告（source: "local_template"），
+ *   - 連不到伺服器、伺服器出錯或流量限制（429）時，改在瀏覽器裡用模板文字組報告（source: "local_template"），
  *     使用者照樣看得到報告。
  */
 
@@ -82,7 +82,9 @@ export async function fetchReport(
     return buildLocally(result, video);
   }
 
-  // 4xx 代表送出的資料格式有問題（程式錯誤），直接回報，不用模板蓋過去
+  // 429：伺服器忙碌或流量限制（rate-limit.ts）→ 在瀏覽器裡用模板組報告，使用者照樣看得到報告
+  if (response.status === 429) return buildLocally(result, video);
+  // 其他 4xx 代表送出的資料格式有問題（程式錯誤），直接回報，不用模板蓋過去
   if (response.status >= 400 && response.status < 500) throw new ReportRequestError(response.status);
   if (!response.ok) return buildLocally(result, video);
 

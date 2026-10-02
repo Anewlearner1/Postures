@@ -48,6 +48,11 @@ export interface GenerateOptions {
   apiKey?: string;
   /** 預設讀取 process.env.CLAUDE_MODEL，沒有設定時用 claude-opus-5-5。 */
   model?: string;
+  /**
+   * 呼叫 Claude 前檢查費用額度（見 rate-limit.ts）：回傳 false 時不呼叫 Claude，直接用模板。
+   * 沒有提供時不限制（例如測試）。
+   */
+  reserveAiCall?: () => boolean;
 }
 
 export async function generateReport(request: ReportRequest, options: GenerateOptions = {}): Promise<ReportApiResponse> {
@@ -57,6 +62,11 @@ export async function generateReport(request: ReportRequest, options: GenerateOp
   const apiKey = (options.apiKey ?? process.env.ANTHROPIC_API_KEY ?? "").trim();
   if (!apiKey) {
     // 沒有金鑰：網站照常運作，直接用模板文字（不算錯誤，不記錄）
+    return { source: "template", report: template };
+  }
+
+  if (options.reserveAiCall && !options.reserveAiCall()) {
+    logFallback("ai_budget_exhausted");
     return { source: "template", report: template };
   }
 

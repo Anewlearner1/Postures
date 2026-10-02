@@ -31,6 +31,8 @@
 | `ai-merge.ts` | 交給 Claude 的資料、Claude 的輸出格式、合併與檢查 |
 | `claude-writer.ts` | 呼叫 Claude API（只在伺服器端，`server-only`） |
 | `generate-report.ts` | 伺服器端整體流程與降級 |
+| `rate-limit.ts` | 流量限制（每 IP、整台伺服器、Claude 呼叫次數；只在記憶體中，見 docs/review/M5-security.md） |
+| `sample-cache.ts` | 示範報告（假資料）的 AI 結果暫存 1 小時；真實資料不暫存 |
 | `fetch-report.ts` | 前端呼叫 API 的函式；連不到伺服器時在瀏覽器用模板組報告 |
 | `*.test.ts`、`test-fixtures.ts` | 自動化測試（`npm test`），不會真的呼叫 Claude |
 
@@ -41,6 +43,9 @@
 - 回應 200：`{ "source": "ai" | "template", "report": ReportBody }`
 - 回應 400：`{ "error": "invalid_json" }` 或 `{ "error": "invalid_request", "issues": [{ "path", "code" }] }`
 - 回應 413／415：請求太大／不是 JSON。
+- 回應 403：從其他網站的網頁送來（`Sec-Fetch-Site: cross-site`）。
+- 回應 429：超過流量限制（附 `Retry-After` 秒數）；前端會改在瀏覽器裡用模板組報告。
+  Claude 呼叫次數超過額度時不回 429，而是直接回模板報告（`source: "template"`）。
 
 ## 規格依據
 
