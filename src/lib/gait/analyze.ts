@@ -107,8 +107,9 @@ export function analyzeGait(
     passes.length > 0 ? 0 : bodyWidthRatio(track),
   );
   if (sideView) return { status: "rejected", code: sideView, details: { ...rejectDetails, passes: passes.length } };
+  // M5（A-3）：整段影片或直線段內，任一個全身完整比例 ≥ 60% 就不拒絕（轉身出畫不算；行走中的短暫遮擋交給 occlusion）
   const inPasses = completeBodyFractionInPasses(track, passes);
-  if (inPasses !== undefined) {
+  if (inPasses !== undefined && inPasses > rejectStats.completeBodyFraction) {
     rejectStats.completeBodyFraction = inPasses;
     rejectDetails.completeBodyFraction = inPasses;
   }

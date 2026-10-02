@@ -42,7 +42,7 @@ function isCompleteBody(track: Track, k: number): boolean {
 }
 
 /**
- * M5（A-3）：只在「直線行走段」內計算全身完整比例。轉身與站立時人常走到畫面邊緣或出畫，
+ * M5（A-3）：另在「直線行走段」內計算全身完整比例（與整段影片的比例取較高者判斷 body_incomplete）。轉身與站立時人常走到畫面邊緣或出畫，
  * 但那些影格本來就不分析，不應讓影片被拒絕；直線段內出畫由 partial_out_of_frame 與週期邊緣檢查處理。
  * 沒有直線段時回傳 undefined（沿用整段影片的比例）。
  */
