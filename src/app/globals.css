@@ -58,3 +58,15 @@ details > summary .summary-arrow {
 details[open] > summary .summary-arrow {
   transform: rotate(90deg);
 }
+
+/* 列印／儲存為 PDF（D43）：只印報告的列印版，A4 頁邊距，保留指示條顏色 */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm 12mm;
+  }
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

@@ -9,7 +9,7 @@ import { DISCLAIMER_COPY, PRODUCT_NAME } from "@/data/site";
 
 export function SiteFooter() {
   return (
-    <footer className="mt-auto border-t border-line bg-surface">
+    <footer className="mt-auto border-t border-line bg-surface print:hidden">
       <div className="mx-auto w-full max-w-6xl space-y-3 px-4 py-8 text-sm text-muted sm:px-6">
         <p>{DISCLAIMER_COPY.footer}</p>
         <nav aria-label="頁尾連結" className="flex flex-wrap gap-x-4 gap-y-2">

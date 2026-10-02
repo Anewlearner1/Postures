@@ -100,7 +100,16 @@ function timestampsFor(
 
 /** D44：給使用者看的代表角度與常見範圍（整數度；只在本機使用）。 */
 export function userMetricFor(key: UserMetric["key"], value: number): UserMetric {
-  const valueDeg = Math.round(value);
+  // 四捨五入到整數，但不可讓數字跨過「常見範圍」界線（例如 TRK 6.9° 判正常，不可顯示成 7°）
+  const inNormal = (v: number) =>
+    key === "PHE" ? v >= HIP_EXTENSION.normalMin
+      : key === "PKF_sw" ? v >= KNEE_SWING.normalMin
+        : key === "KIC" ? v <= KNEE_STANCE.normalMax
+          : v < TRUNK.mildMin;
+  let valueDeg = Math.round(value);
+  if (inNormal(valueDeg) !== inNormal(value)) {
+    valueDeg = [Math.floor(value), Math.ceil(value)].find((v) => inNormal(v) === inNormal(value)) ?? valueDeg;
+  }
   switch (key) {
     case "PHE":
       return { key, valueDeg, normalMinDeg: HIP_EXTENSION.normalMin };

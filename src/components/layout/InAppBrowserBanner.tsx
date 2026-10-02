@@ -49,7 +49,7 @@ export function InAppBrowserBanner() {
   }
 
   return (
-    <div role="region" aria-label="瀏覽器提示" className="border-b border-sev-mild bg-amber-50">
+    <div role="region" aria-label="瀏覽器提示" className="border-b border-sev-mild bg-amber-50 print:hidden">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-2 px-4 py-3 text-sm sm:px-6 md:flex-row md:items-center">
         <p className="flex flex-1 items-start gap-2">
           <AlertIcon className="mt-0.5 h-4 w-4 shrink-0 text-sev-mild" />
