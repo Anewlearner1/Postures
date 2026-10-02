@@ -2,14 +2,15 @@
 
 /**
  * 這個檔案做什麼：
- *   在瀏覽器中呼叫 fetchReport() 取得報告（POST /api/report），取得後交給 ReportContent 畫出來。
- *   目前還沒有真正的影片分析（M3），所以先用 src/data/sample-analysis.ts 的示範分析結果。
- *   M3 完成後，把 SAMPLE_ANALYSIS／SAMPLE_VIDEO 換成這次分析的結果即可。
+ *   示範報告（網址：/report/sample）。用 src/data/sample-analysis.ts 的示範分析結果（假資料）
+ *   呼叫 fetchReport()（POST /api/report）取得報告內容，交給 ReportContent 畫出來，
+ *   讓還沒拍影片的人也能先看看報告長什麼樣子。使用者自己的報告在 SessionReport.tsx。
  */
 
 import { useEffect, useState } from "react";
 import { ReportContent } from "@/components/report/ReportContent";
 import { PageContainer } from "@/components/ui/PageContainer";
+import { SAMPLE_REPORT_BANNER } from "@/data/analysis-copy";
 import { SAMPLE_ANALYSIS, SAMPLE_VIDEO } from "@/data/sample-analysis";
 import { fetchReport, type FetchedReport } from "@/lib/report/fetch-report";
 
@@ -54,5 +55,10 @@ export function LiveReport() {
     );
   }
 
-  return <ReportContent report={state.data.report} sourceLabel={SOURCE_LABEL[state.data.source]} />;
+  return (
+    <ReportContent
+      report={state.data.report}
+      notice={{ tone: "demo", text: `${SAMPLE_REPORT_BANNER}（${SOURCE_LABEL[state.data.source]}）` }}
+    />
+  );
 }

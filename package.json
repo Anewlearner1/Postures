@@ -3,16 +3,21 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/fetch-mediapipe-model.mjs --soft",
     "dev": "next dev",
+    "prebuild": "node scripts/fetch-mediapipe-model.mjs",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint --ignore-pattern \"public/mediapipe/**\"",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "mediapipe:fetch": "node scripts/fetch-mediapipe-model.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",
+    "@mediapipe/tasks-vision": "1.0.1",
     "next": "16.3.8",
     "react": "19.2.8",
     "react-dom": "19.2.8",
@@ -20,6 +25,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@playwright/test": "1.56.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^22",
     "@types/react": "^19",

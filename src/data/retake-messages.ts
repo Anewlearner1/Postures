@@ -4,8 +4,8 @@
  *   文案來源：docs/spec/ux-flow-and-copy.md §5（錯誤與重拍文案）。
  *   代碼名稱對齊 docs/spec/gait-rules.md §7.1（拒絕代碼）。
  *
- * 說明：UX 文案中的 {秒數}、{影格率} 等變數，要等 M3 真的讀取影片後才知道，
- *       目前先用不含數字的通用說法。
+ * 說明：UX 文案中的 {秒數}、{影格率} 等變數，只有在上傳頁讀到影片資訊時才知道
+ *       （describe 函式）；從網址 /retake/代碼 直接開啟時用不含數字的通用說法（description）。
  */
 
 import type { RejectCode } from "@/lib/gait/types";
@@ -28,9 +28,17 @@ export type RetakeAction =
   | { kind: "copy_url"; label: string }
   | { kind: "reload"; label: string };
 
+/** 文案中的變數（UX 文件的 {秒數}、{影格率}）。 */
+export interface RetakeVars {
+  durationSec?: number;
+  fps?: number;
+}
+
 export interface RetakeMessage {
   title: string;
   description: string;
+  /** 有變數時改用這個版本的說明（UX 原文）。 */
+  describe?: (vars: RetakeVars) => string | null;
   /** 「怎麼解決」條列；沒有就不顯示。 */
   solutions: string[];
   primary: RetakeAction;
@@ -80,6 +88,10 @@ export const RETAKE_MESSAGES: Record<RetakeCode, RetakeMessage> = {
   too_short: {
     title: "影片太短了",
     description: "這段影片太短。我們需要 10–20 秒的影片，才能拍到足夠的步伐。",
+    describe: ({ durationSec }) =>
+      durationSec === undefined
+        ? null
+        : `這段影片只有 ${Math.max(1, Math.round(durationSec))} 秒。我們需要 10–20 秒的影片，才能拍到足夠的步伐。`,
     solutions: ["重拍一段 10–20 秒的影片，在平地上來回走 2 趟。"],
     primary: RESELECT,
     secondary: SEE_GUIDE,
@@ -107,6 +119,10 @@ export const RETAKE_MESSAGES: Record<RetakeCode, RetakeMessage> = {
     title: "影片的畫面太少，無法分析",
     description:
       "這段影片每秒的畫面（fps）太少，會錯過走路時的重要動作，我們沒辦法準確分析。常見原因是用了縮時攝影、省電模式，或影片被壓縮過（例如透過通訊軟體傳送）。",
+    describe: ({ fps }) =>
+      fps === undefined
+        ? null
+        : `這段影片每秒只有 ${Math.round(fps)} 個畫面（fps），會錯過走路時的重要動作，我們沒辦法準確分析。常見原因是用了縮時攝影、省電模式，或影片被壓縮過（例如透過通訊軟體傳送）。`,
     solutions: [
       "用手機的一般「錄影」模式重拍，畫質設定為 1080p、30 fps",
       "如果影片是別人用 LINE 等通訊軟體傳給你的，請對方用「原始檔案」或雲端連結傳送",

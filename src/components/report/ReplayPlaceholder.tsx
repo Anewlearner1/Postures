@@ -1,10 +1,12 @@
 /**
  * 這個檔案做什麼：
- *   報告頁的「骨架回放」區塊佔位（UX 文件 §4.6）。
- *   M4 會換成真正的影片＋骨架疊圖播放器；目前只畫出版面：影片框、控制列、
+ *   示範報告（/report/sample）的「骨架回放」區塊佔位（UX 文件 §4.6）。
+ *   示範報告沒有使用者的影片，所以只畫出版面：影片框、控制列、
  *   時間軸上的問題標記（用編號區分，不只靠顏色）與圖例。
+ *   使用者自己的報告改用 SkeletonReplay.tsx（真正的影片＋骨架疊圖播放器）。
  */
 
+import { REPLAY_CONTROLS } from "@/data/analysis-copy";
 import { REPLAY_COPY } from "@/data/report-copy";
 import type { TimelineMarker } from "@/lib/report/types";
 
@@ -26,7 +28,7 @@ export function ReplayPlaceholder({
       <p className="text-sm text-muted">{REPLAY_COPY.subtitle}</p>
 
       <div className="mt-3 flex aspect-video items-center justify-center rounded-xl bg-ink/90 p-4 text-center text-sm text-white">
-        影片＋骨架疊圖（佔位，M4 實作）
+        {REPLAY_CONTROLS.sampleNotice}
       </div>
 
       {/* 控制列（示意，尚不能操作） */}

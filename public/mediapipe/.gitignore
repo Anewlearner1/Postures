@@ -1,0 +1,5 @@
+# 這個檔案做什麼：MediaPipe 的模型檔與 WASM 很大（合計約 21 MB），由 scripts/fetch-mediapipe-model.mjs
+# 在 npm run dev／build 前自動放進來，不放進 Git。
+*.task
+*.download
+wasm/

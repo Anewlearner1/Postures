@@ -5,8 +5,13 @@
  *   短版免責聲明 →（適用情況提醒）→（低可信度提示）→ 總覽＋測試版標準 → 問題卡片 → 看起來不錯
  *   → 觀察：頭部位置 → 骨架回放 → 什麼時候該找專業人員 → 下一步 → 離開提醒。
  *   手機是單欄；電腦是「左欄骨架回放固定、右欄卡片捲動」。
+ *
+ *   同一個版面給兩種報告使用：
+ *   - 使用者自己的報告（/report）：replay 傳入真正的骨架回放播放器
+ *   - 示範報告（/report/sample）：沒有影片，回放區顯示佔位，頂端顯示「示範報告」說明（notice）
  */
 
+import type { ReactNode } from "react";
 import { ProblemCard } from "@/components/report/ProblemCard";
 import { ReplayPlaceholder } from "@/components/report/ReplayPlaceholder";
 import { SeekCareSection } from "@/components/report/SeekCare";
@@ -19,16 +24,36 @@ import { CONFIDENCE_INFO, CONFIDENCE_LABEL, NEXT_STEPS_COPY, POPULATION_CAVEAT_C
 import { STANDARD_LABEL } from "@/data/site";
 import type { ReportView } from "@/lib/report/types";
 
-export function ReportContent({ report, sourceLabel }: { report: ReportView; sourceLabel: string }) {
+export function ReportContent({
+  report,
+  notice,
+  replay,
+  onViewInVideo,
+}: {
+  report: ReportView;
+  /** 報告頂端的說明（例如示範報告、AI 白話說明暫時無法產生）。 */
+  notice?: { text: string; tone: "demo" | "info" };
+  /** 骨架回放區；沒有提供時顯示佔位版。 */
+  replay?: ReactNode;
+  /** 卡片的「在影片中查看」：傳入卡片 id。 */
+  onViewInVideo?: (cardId: string) => void;
+}) {
   const isLowConfidence = report.confidence === "low";
   const hasMarked = report.problems.some((problem) => problem.severity === "marked");
 
   return (
     <PageContainer width="wide" className="space-y-6">
-      {/* 開發中說明：接上真正的分析後刪除 */}
-      <p className="rounded-lg border-2 border-dashed border-sev-mild px-3 py-2 text-sm font-semibold text-sev-mild">
-        這是示範報告（假資料），只用來展示版面，不是任何人的真實分析結果。（{sourceLabel}）
-      </p>
+      {notice?.tone === "demo" && (
+        <p className="rounded-lg border-2 border-dashed border-sev-mild px-3 py-2 text-sm font-semibold text-sev-mild">
+          {notice.text}
+        </p>
+      )}
+      {notice?.tone === "info" && (
+        <p className="flex items-start gap-2 rounded-lg bg-surface px-3 py-2 text-sm text-muted">
+          <InfoIcon className="mt-0.5 h-4 w-4 shrink-0" />
+          {notice.text}
+        </p>
+      )}
 
       {/* 1. 短版免責聲明 */}
       <DisclaimerStrip />
@@ -107,7 +132,12 @@ export function ReportContent({ report, sourceLabel }: { report: ReportView; sou
         {/* 4. 問題卡片（依嚴重度排序：明顯 → 輕度） */}
         <section className="space-y-4 lg:col-start-2" aria-label="問題卡片">
           {report.problems.map((problem) => (
-            <ProblemCard key={problem.id} problem={problem} lowConfidence={isLowConfidence} />
+            <ProblemCard
+              key={problem.id}
+              problem={problem}
+              lowConfidence={isLowConfidence}
+              onViewInVideo={onViewInVideo ? () => onViewInVideo(problem.id) : undefined}
+            />
           ))}
         </section>
 
@@ -143,7 +173,7 @@ export function ReportContent({ report, sourceLabel }: { report: ReportView; sou
 
         {/* 7. 骨架回放（電腦版固定在左欄） */}
         <div className="lg:sticky lg:top-20 lg:col-start-1 lg:row-span-6 lg:row-start-1">
-          <ReplayPlaceholder markers={report.timelineMarkers} durationLabel={report.durationLabel} />
+          {replay ?? <ReplayPlaceholder markers={report.timelineMarkers} durationLabel={report.durationLabel} />}
         </div>
 
         {/* 8. 什麼時候該找專業人員 */}

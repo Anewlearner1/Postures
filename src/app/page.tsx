@@ -68,6 +68,12 @@ export default function HomePage() {
               <ChevronRightIcon />
             </ButtonLink>
           </div>
+          <p className="text-sm text-muted">
+            想先看看報告長什麼樣子？
+            <ButtonLink href="/report/sample" variant="ghost">
+              看示範報告
+            </ButtonLink>
+          </p>
           <DisclaimerStrip variant="general" />
         </div>
         <WalkingFigure className="aspect-[4/3] w-full" />

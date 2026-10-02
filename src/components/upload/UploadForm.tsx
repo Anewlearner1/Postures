@@ -4,84 +4,139 @@
  * 這個檔案做什麼：
  *   上傳頁的互動部分（UX 文件 §2.3）：
  *   狀態 A：還沒選影片 → 顯示選擇按鈕（電腦可拖放）
- *   狀態 B：已選影片 → 預覽影片、快速檢查清單、必勾「我已年滿 18 歲」、適用提醒、開始分析
- *   選檔後先檢查格式與大小，不通過就直接顯示錯誤畫面，不進入分析。
+ *   選檔後：先檢查格式與大小，再讀取影片長度、解析度、影格率（前置檢查，UX §5.4–§5.7、§5.11），
+ *          不通過就直接顯示錯誤畫面，不進入分析
+ *   狀態 B：已選影片 → 預覽影片、快速檢查清單、必勾「我已年滿 18 歲」、適用情況（選填）、開始分析
  *
- *   影片只在瀏覽器裡預覽，不會上傳。
+ *   影片只在瀏覽器裡預覽與讀取，不會上傳。
  */
 
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useRef, useState, type DragEvent } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type DragEvent } from "react";
 import { GuideTipList } from "@/components/guide/GuideTipList";
 import { RetakeView } from "@/components/retake/RetakeView";
 import { useAnalysisSession } from "@/components/session/AnalysisSession";
 import { ButtonLink, buttonClass } from "@/components/ui/ButtonLink";
-import { InfoIcon, VideoIcon } from "@/components/ui/icons";
+import { AlertIcon, InfoIcon, VideoIcon } from "@/components/ui/icons";
 import { PrivacyNote } from "@/components/ui/PrivacyNote";
+import { CHECKING_VIDEO, longVideoNotice, POPULATION_CHECKS } from "@/data/analysis-copy";
+import type { RetakeCode, RetakeVars } from "@/data/retake-messages";
 import { UPLOAD_LIMITS } from "@/data/site";
-import { validateVideoFile, type UploadErrorCode } from "@/lib/upload/validate-video";
+import { missingCapabilities, readBrowserCapabilities } from "@/lib/pose/browser-support";
+import { evaluateVideo } from "@/lib/pose/preflight";
+import { readVideoMeta } from "@/lib/pose/read-video-meta";
+import { validateVideoFile } from "@/lib/upload/validate-video";
 
 const QUICK_CHECKS = ["從頭到腳都在畫面裡", "是從側面拍的", "有來回走（不是原地踏步）"];
 
+const noSubscribe = () => () => undefined;
+/** 瀏覽器缺少分析需要的功能（UX §5.8）。伺服器端產生頁面時一律當作支援。 */
+function useBrowserUnsupported(): boolean {
+  return useSyncExternalStore(
+    noSubscribe,
+    () => missingCapabilities(readBrowserCapabilities()).length > 0,
+    () => false,
+  );
+}
+
 export function UploadForm() {
   const router = useRouter();
-  const { setVideo, ageConfirmed, setAgeConfirmed } = useAnalysisSession();
+  const { video, selectVideo, ageConfirmed, setAgeConfirmed, setPopulationCaveat } = useAnalysisSession();
   const inputRef = useRef<HTMLInputElement>(null);
   const inputId = useId();
 
-  const [file, setFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [durationSec, setDurationSec] = useState<number | null>(null);
-  const [error, setError] = useState<UploadErrorCode | null>(null);
+  // 這一頁選好的影片才顯示「狀態 B」（從其他頁回到上傳頁時，一律從頭開始）
+  const [selectedHere, setSelectedHere] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [error, setError] = useState<{ code: RetakeCode; vars?: RetakeVars } | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [populationChecks, setPopulationChecks] = useState<boolean[]>(() => POPULATION_CHECKS.items.map(() => false));
+  const checkToken = useRef(0);
 
-  // 離開這一頁時，釋放預覽影片佔用的記憶體
+  const browserUnsupported = useBrowserUnsupported();
+
+  // 進到上傳頁：清掉上一次的影片與報告
   useEffect(() => {
-    return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-    };
-  }, [previewUrl]);
+    selectVideo(null);
+    setPopulationCaveat(false);
+  }, [selectVideo, setPopulationCaveat]);
 
-  function handleFile(selected: File | undefined) {
+  async function handleFile(selected: File | undefined) {
     if (!selected) return;
     const check = validateVideoFile(selected);
     if (!check.ok) {
-      setError(check.code);
+      setError({ code: check.code });
       return;
     }
+    const token = ++checkToken.current;
     setError(null);
-    setFile(selected);
-    setDurationSec(null);
-    setPreviewUrl(URL.createObjectURL(selected));
+    setChecking(true);
+    const read = await readVideoMeta(selected);
+    if (token !== checkToken.current) return;
+    setChecking(false);
+    if (!read.ok) {
+      setError({ code: read.code });
+      return;
+    }
+    const verdict = evaluateVideo(read.meta);
+    if (!verdict.ok) {
+      setError({ code: verdict.code, vars: { durationSec: verdict.durationSec, fps: verdict.fps } });
+      return;
+    }
+    selectVideo({ file: selected, meta: read.meta, plan: verdict.plan });
+    setSelectedHere(true);
   }
 
   function reset() {
-    setFile(null);
-    setPreviewUrl(null);
-    setDurationSec(null);
+    checkToken.current += 1;
+    selectVideo(null);
+    setSelectedHere(false);
+    setChecking(false);
     setError(null);
     if (inputRef.current) inputRef.current.value = "";
   }
 
+  function togglePopulation(index: number, checked: boolean) {
+    const next = populationChecks.map((value, i) => (i === index ? checked : value));
+    setPopulationChecks(next);
+    // 只記「有沒有勾」（D35），勾了哪一項只留在這個畫面上
+    setPopulationCaveat(next.some(Boolean));
+  }
+
   function startAnalysis() {
-    if (!file || !ageConfirmed) return;
-    setVideo(file);
+    if (!video || !ageConfirmed) return;
     router.push("/analyze");
   }
 
   function handleDrop(event: DragEvent<HTMLLabelElement>) {
     event.preventDefault();
     setDragging(false);
-    handleFile(event.dataTransfer.files[0]);
+    void handleFile(event.dataTransfer.files[0]);
   }
 
-  // 錯誤畫面（格式不支援、不是影片、檔案太大）
+  // 瀏覽器無法執行分析（UX §5.8）
+  if (browserUnsupported) {
+    return <RetakeView code="browser_unsupported" />;
+  }
+
+  // 錯誤畫面（格式不支援、不是影片、檔案太大、太短、影格率太低）
   if (error) {
-    return <RetakeView code={error} onReselect={reset} />;
+    return <RetakeView code={error.code} vars={error.vars} onReselect={reset} />;
+  }
+
+  if (checking) {
+    return (
+      <div className="flex flex-col items-center gap-4 py-16 text-center" role="status">
+        <span className="h-10 w-10 animate-spin rounded-full border-4 border-line border-t-brand-600" aria-hidden />
+        <p className="text-lg">{CHECKING_VIDEO}</p>
+        <PrivacyNote />
+      </div>
+    );
   }
 
   // 狀態 B：已選擇影片，確認中
-  if (file && previewUrl) {
+  if (video && selectedHere) {
+    const { file, meta, plan } = video;
     return (
       <div>
         <div className="flex items-center justify-between gap-4">
@@ -94,18 +149,23 @@ export function UploadForm() {
         <div className="mt-6 grid gap-8 md:grid-cols-2 md:items-start">
           <div>
             <video
-              src={previewUrl}
+              src={video.url}
               controls
               playsInline
+              muted
               preload="metadata"
-              className="aspect-video w-full rounded-xl bg-black"
-              onLoadedMetadata={(event) => setDurationSec(event.currentTarget.duration)}
+              className="max-h-[70vh] w-full rounded-xl bg-black"
+              style={{ aspectRatio: `${meta.width} / ${meta.height}` }}
             />
-            <p className="mt-2 break-all text-sm text-muted">
-              {file.name}
-              {durationSec !== null && Number.isFinite(durationSec) && `・${Math.round(durationSec)} 秒`}
-              ・{(file.size / 1024 / 1024).toFixed(1)} MB
+            <p className="mt-2 break-all text-sm text-muted" data-testid="video-summary">
+              {file.name}・{Math.round(meta.durationSec)} 秒・{(file.size / 1024 / 1024).toFixed(1)} MB
             </p>
+            {plan.trimmed && (
+              <p className="mt-3 flex items-start gap-2 rounded-xl border border-sev-mild bg-amber-50 p-3 text-sm" role="note">
+                <AlertIcon className="mt-0.5 h-4 w-4 shrink-0 text-sev-mild" />
+                {longVideoNotice(meta.durationSec)}
+              </p>
+            )}
           </div>
 
           <div className="space-y-6">
@@ -132,20 +192,29 @@ export function UploadForm() {
               我已年滿 18 歲（必勾）
             </label>
 
-            <div className="rounded-xl bg-surface p-4 text-sm">
-              <p className="flex items-center gap-2 font-semibold">
+            {/* 適用情況（D30／D35）：選填，不擋使用 */}
+            <fieldset className="rounded-xl bg-surface p-4 text-sm">
+              <legend className="sr-only">{POPULATION_CHECKS.title}</legend>
+              <p className="flex items-center gap-2 font-semibold" aria-hidden>
                 <InfoIcon className="h-4 w-4 shrink-0" />
-                以下情況，分析結果可能不適用：
+                {POPULATION_CHECKS.title}
               </p>
-              <ul className="mt-2 list-disc space-y-1 pl-5">
-                <li>懷孕中</li>
-                <li>有中風、帕金森氏症、周邊神經病變等神經方面的狀況</li>
-                <li>走路時正在疼痛，或最近受過傷、開過刀</li>
-              </ul>
-              <p className="mt-2 text-muted">
-                這些情況會改變走路方式，我們的判斷標準不是為此設計的。如有以上情況，建議先諮詢醫師或物理治療師；你仍可以繼續分析，但請把結果當作參考。
-              </p>
-            </div>
+              <div className="mt-2 space-y-1">
+                {POPULATION_CHECKS.items.map((label, index) => (
+                  <label key={label} className="flex min-h-11 items-center gap-3">
+                    <input
+                      type="checkbox"
+                      className="h-5 w-5 shrink-0 accent-brand-600"
+                      checked={populationChecks[index]}
+                      onChange={(event) => togglePopulation(index, event.target.checked)}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+              <p className="mt-2 text-muted">{POPULATION_CHECKS.explanation}</p>
+              <p className="mt-1 text-muted">{POPULATION_CHECKS.privacy}</p>
+            </fieldset>
 
             <div className="space-y-2">
               <button
@@ -206,7 +275,8 @@ export function UploadForm() {
             type="file"
             accept="video/*"
             className="sr-only"
-            onChange={(event) => handleFile(event.target.files?.[0])}
+            data-testid="video-input"
+            onChange={(event) => void handleFile(event.target.files?.[0])}
           />
           <PrivacyNote />
           <p className="text-sm">

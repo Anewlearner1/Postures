@@ -3,6 +3,7 @@
  *   報告頁的「問題卡片」（UX 文件 §4.3.0）：白話名稱、專業名稱、嚴重度指示條、
  *   我們看到什麼、在影片中查看，以及可展開的「這代表什麼／可能原因／建議練習」。
  *   用瀏覽器內建的 <details> 做展開／收合，不需要額外程式。
+ *   「在影片中查看」：有骨架回放時（onViewInVideo）會跳到影片中的問題時間點（UX §4.6）。
  */
 
 import type { ReactNode } from "react";
@@ -11,7 +12,16 @@ import { SeverityMeter } from "@/components/ui/SeverityMeter";
 import { CAUSES_INTRO, EXERCISE_SAFETY, POPULATION_CAVEAT_COPY } from "@/data/report-copy";
 import type { ProblemCardView } from "@/lib/report/types";
 
-export function ProblemCard({ problem, lowConfidence = false }: { problem: ProblemCardView; lowConfidence?: boolean }) {
+export function ProblemCard({
+  problem,
+  lowConfidence = false,
+  onViewInVideo,
+}: {
+  problem: ProblemCardView;
+  lowConfidence?: boolean;
+  /** 點「在影片中查看」時呼叫（沒有提供時只捲到回放區）。 */
+  onViewInVideo?: () => void;
+}) {
   return (
     <article
       className={`rounded-2xl border-2 bg-white p-5 ${lowConfidence ? "border-dashed border-line" : "border-line"}`}
@@ -44,7 +54,15 @@ export function ProblemCard({ problem, lowConfidence = false }: { problem: Probl
         <h4 className="font-semibold">我們看到什麼</h4>
         <p className="mt-1">{problem.whatWeSaw}</p>
         {problem.firstTimestamp && (
-          <a href="#replay" className="mt-2 inline-flex min-h-10 items-center gap-1 text-brand-700 underline underline-offset-4">
+          <a
+            href="#replay"
+            onClick={(event) => {
+              if (!onViewInVideo) return;
+              event.preventDefault();
+              onViewInVideo();
+            }}
+            className="mt-2 inline-flex min-h-10 items-center gap-1 text-brand-700 underline underline-offset-4"
+          >
             在影片中查看（{problem.firstTimestamp}）
           </a>
         )}
