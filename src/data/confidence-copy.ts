@@ -18,7 +18,7 @@ export const CONFIDENCE_REASON_COPY: Record<ConfidenceReason, { reason: string; 
   },
   few_cycles: {
     reason: "影片中完整的步伐比較少（只有 {CYCLES} 個），結果比較容易受到單一步伐影響。",
-    fix: "來回走 2 趟，並確認走路路線有 4–5 公尺長、整段都在畫面內。",
+    fix: "來回走 3 趟，並確認走路路線有 4–5 公尺長、整段都在畫面內。",
   },
   occlusion: {
     reason: "有一段時間，身體部分被遮住或看不清楚。",
@@ -46,7 +46,7 @@ export const CONFIDENCE_REASON_COPY: Record<ConfidenceReason, { reason: string; 
   },
   high_variability: {
     reason: "你每一步的動作差異比較大，結果比較難判斷哪一步才是你平常的走法。",
-    fix: "用平常的速度、穩定地走完整段，不要中途停下、加速或看手機；走道 4–5 公尺、來回 2 趟。",
+    fix: "用平常的速度、穩定地走完整段，不要中途停下、加速或看手機；走道 4–5 公尺、來回 3 趟。",
   },
   camera_tilt: {
     reason: "畫面看起來有點歪，身體前傾等角度可能會算得不準。",
@@ -72,5 +72,5 @@ export const CONFIDENCE_TIP_TEMPLATE = "這次的結果可以參考。如果想�
 /** 可信度較低、但判斷規則沒有給原因代碼時的通用說法。【新增文案，待 UX 審閱】 */
 export const CONFIDENCE_LOW_GENERIC = {
   reason: "這次影片的拍攝條件讓結果比較不穩定。",
-  fix: "照拍攝教學重拍一次：手機固定、從正側面拍、來回走 2 趟。",
+  fix: "照拍攝教學重拍一次：手機固定、從正側面拍、來回走 3 趟。",
 } as const;

@@ -79,7 +79,7 @@ export const RETAKE_MESSAGES: Record<RetakeCode, RetakeMessage> = {
       "我們至少需要看到一個完整的步伐（同一隻腳從踩地、往前擺，到再次踩地），但這段影片中沒有找到。常見原因是走的距離太短、在原地踏步，或大部分時間在轉身。",
     solutions: [
       "找一段至少 4–5 公尺的平地，從畫面一端走到另一端",
-      "來回走 2 趟，用平常的速度",
+      "來回走 3 趟，用平常的速度",
       "確認走路的整段過程都在畫面內",
     ],
     primary: RESELECT,
@@ -92,7 +92,7 @@ export const RETAKE_MESSAGES: Record<RetakeCode, RetakeMessage> = {
       durationSec === undefined
         ? null
         : `這段影片只有 ${Math.max(1, Math.round(durationSec))} 秒。我們需要 10–20 秒的影片，才能拍到足夠的步伐。`,
-    solutions: ["重拍一段 10–20 秒的影片，在平地上來回走 2 趟。"],
+    solutions: ["重拍一段 10–20 秒的影片，在平地上來回走 3 趟。"],
     primary: RESELECT,
     secondary: SEE_GUIDE,
   },
