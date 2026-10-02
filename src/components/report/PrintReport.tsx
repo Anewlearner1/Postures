@@ -38,8 +38,11 @@ export function PrintReport({
   generatedAt,
   keyframe,
   metricsByCard,
+  demoNotice,
 }: {
   report: ReportView;
+  /** 示範報告的說明（列印版也要標明是假資料）。 */
+  demoNotice?: string;
   generatedAt: Date;
   keyframe?: Keyframe | null;
   metricsByCard?: Record<string, MetricRow[]>;
@@ -67,6 +70,7 @@ export function PrintReport({
         <p className="text-sm">{DOWNLOAD_COPY.generatedAt(formatDate(generatedAt))}</p>
       </header>
 
+      {demoNotice && <p className="rounded border-2 border-dashed border-black p-2 font-bold">{demoNotice}</p>}
       <p className="rounded border border-black p-2 text-sm">{DISCLAIMER_COPY.short}</p>
       {STANDARD_LABEL.show && <p className="text-xs">{STANDARD_LABEL.text}：{STANDARD_LABEL.explanation}</p>}
 

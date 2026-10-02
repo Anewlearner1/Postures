@@ -81,7 +81,13 @@ export function ReportContent({
 
   return (
     <>
-    <PrintReport report={report} generatedAt={generatedAt} keyframe={keyframe} metricsByCard={metricsByCard} />
+    <PrintReport
+      report={report}
+      generatedAt={generatedAt}
+      keyframe={keyframe}
+      metricsByCard={metricsByCard}
+      demoNotice={notice?.tone === "demo" ? notice.text : undefined}
+    />
     <PageContainer width="wide" className="space-y-6 pb-28 print:hidden lg:pb-12">
       {notice?.tone === "demo" && (
         <p className="rounded-lg border-2 border-dashed border-sev-mild px-3 py-2 text-sm font-semibold text-sev-mild">
