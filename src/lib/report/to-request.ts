@@ -4,6 +4,8 @@
  *   見 request.ts）。轉換時只保留允許送出的欄位：
  *   - 每個問題只送它自己的代表指標（髖：PHE；膝擺盪期：PKF_sw；膝著地：KIC；軀幹：TRK）。
  *   - TE、NCK、KLR 等內部數值一律不送（D18、D25）；本來就沒有左右側欄位（D26）。
+ *   - D38 時間點 `timestamps_sec`、D39 歸因旗標 `hip_attributed_to_trunk` 有值時才帶上。
+ *   - `analyzeGait` 的 `details`（內部完整結果，含左右側）不經過這裡，也不可以送出。
  *   這個檔案刻意不引用動作庫，讓前端程式保持輕量。
  */
 
@@ -49,6 +51,7 @@ export function toReportRequest(result: AnalysisResult): ReportRequest {
         near_threshold: finding.nearThreshold,
         candidate_causes: [...finding.candidateCauses],
         ...(finding.timestampsSec ? { timestamps_sec: [...finding.timestampsSec] } : {}),
+        ...(finding.hipAttributedToTrunk ? { hip_attributed_to_trunk: true } : {}),
       };
     }),
     observations: result.observations.map((observation) => ({ item: observation.item, status: observation.status })),

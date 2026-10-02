@@ -656,7 +656,11 @@ interpretation_flags:
 population_caveat: "true if user ticked pregnancy / neurological condition / current pain"   # D30
 ```
 
-建議的單次分析輸出（交給 LLM 的結構化結果，LLM 不得改動數值與分級）。依 D26 不含任何左右側欄位；依 D25 頭部前傾只出現在 `observations`，沒有數值與等級；`confidence.display` 依 D28 為 `good`、`good_with_tip` 或 `low`：
+建議的單次分析輸出（交給 LLM 的結構化結果，LLM 不得改動數值與分級）。依 D26 不含任何左右側欄位；依 D25 頭部前傾只出現在 `observations`，沒有數值與等級；`confidence.display` 依 D28 為 `good`、`good_with_tip` 或 `low`。M3 起另有兩個選填欄位：
+
+- `timestamps_sec`（D38）：該問題出現的時間點（秒，依時間排序，最多 10 個；API 上限 20）。只有「輕度」「明顯」的問題才有，取自決定分級那一側中、本身就超出正常範圍的週期（沒有時取該側所有有效週期）。代表時間：髖伸展＝支撐末期最大伸展的影格；擺盪期膝屈曲＝擺盪期最大屈曲的影格；著地膝角＝腳跟著地時間；軀幹前傾＝週期中點。報告用它寫「出現了 N 次（例如 0:03、0:08）」與回放標記。
+- `hip_attributed_to_trunk`（D39）：只會出現在 `trunk_forward_lean`，值為 `true`。表示髖伸展偏小已依 §3.2／D31 歸因於軀幹前傾（PHE 偏小但 TE ≥ 12 且 TRK ≥ 7，每側先判斷），而且整體髖伸展因此不成立；這時輸出中**不會有** `hip_extension_deficit` 這一項（避免報告把它列成「在常見範圍內」），軀幹卡片顯示 UX §4.2 的固定文案。若另一側本身就髖伸展不足（TE 也偏小），則照常輸出髖伸展、不帶此旗標。
+
 
 ```json
 {
@@ -672,7 +676,8 @@ population_caveat: "true if user ticked pregnancy / neurological condition / cur
       "metrics": { "PHE": 9.4 },
       "metric_confidence": "medium",
       "near_threshold": false,
-      "candidate_causes": ["hip_flexor_tightness", "glute_weakness", "weak_push_off", "slow_short_stride"]
+      "candidate_causes": ["hip_flexor_tightness", "glute_weakness", "weak_push_off", "slow_short_stride"],
+      "timestamps_sec": [3.12, 8.24]
     },
     {
       "problem": "knee_flexion_abnormal",
@@ -699,7 +704,22 @@ population_caveat: "true if user ticked pregnancy / neurological condition / cur
 }
 ```
 
-內部另存一份完整結果（各側中位數、各側有效週期數與分級、ΔPKF、TE、NCK 數值、所有可信度因子），供除錯、M5 校正與使用者同意捐贈的骨架分析資料（D19）使用；**不送 LLM、不顯示給使用者**。
+D39 情況的 `findings` 範例（沒有髖伸展項目，軀幹帶旗標）：
+
+```json
+[
+  { "problem": "knee_flexion_abnormal", "subtype": "knee_swing_flexion_low", "severity": "normal",
+    "metrics": { "PKF_sw": 58.9 }, "metric_confidence": "high", "near_threshold": false, "candidate_causes": [] },
+  { "problem": "knee_flexion_abnormal", "subtype": "knee_stance_flexion_high", "severity": "normal",
+    "metrics": { "KIC": 7.2 }, "metric_confidence": "high", "near_threshold": false, "candidate_causes": [] },
+  { "problem": "trunk_head_forward_lean", "subtype": "trunk_forward_lean", "severity": "mild",
+    "metrics": { "TRK": 10.0 }, "metric_confidence": "high", "near_threshold": false,
+    "candidate_causes": ["thoracic_stiffness", "pec_tightness", "back_scapular_endurance", "hip_flexor_tightness"],
+    "timestamps_sec": [1.77, 2.82, 7.54], "hip_attributed_to_trunk": true }
+]
+```
+
+內部另存一份完整結果（各側中位數、各側有效週期數與分級、ΔPKF、TE、NCK 數值、所有可信度因子），供除錯、M5 校正與使用者同意捐贈的骨架分析資料（D19）使用；**不送 LLM、不顯示給使用者**。實作上是 `analyzeGait()` 回傳的 `details`（`src/lib/gait/types.ts` 的 `AnalysisDetails`），送 API 前一律經過 `toReportRequest()`，它只保留上面的欄位。
 
 ---
 

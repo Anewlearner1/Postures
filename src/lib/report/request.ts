@@ -11,8 +11,11 @@
  *
  *   前端把 AnalysisResult（駝峰寫法）轉成這個格式的函式在 `to-request.ts`。
  *
- *   唯一的擴充：每個問題可以選填 `timestamps_sec`（問題出現的時間點，秒），
- *   讓報告的「我們看到什麼」能寫出時間點（UX §4.3.0）。這不是角度數字，也不含左右側。
+ *   擴充欄位（gait-rules.md §8）：
+ *   - 每個問題可以選填 `timestamps_sec`（D38：問題出現的時間點，秒），
+ *     讓報告的「我們看到什麼」能寫出時間點（UX §4.3.0）。這不是角度數字，也不含左右側。
+ *   - 軀幹前傾可以選填 `hip_attributed_to_trunk: true`（D39）：髖伸展偏小已歸因於軀幹前傾（D31），
+ *     此時請求中不可以再有髖伸展的問題，軀幹卡片顯示 UX §4.2 的固定文案。
  */
 
 import { z } from "zod";
@@ -92,6 +95,8 @@ const findingSchema = z
     near_threshold: z.boolean(),
     candidate_causes: z.array(z.enum(CAUSE_CODES)).max(CAUSE_CODES.length),
     timestamps_sec: z.array(z.number().finite().min(0).max(600)).max(20).optional(),
+    /** D39：只允許出現在軀幹前傾（trunk_forward_lean）。 */
+    hip_attributed_to_trunk: z.boolean().optional(),
   })
   .strict();
 
@@ -136,7 +141,20 @@ export const reportRequestSchema = z
     }
 
     const seen = new Set<string>();
+    const hasHipFinding = value.findings.some((finding) => finding.problem === "hip_extension_deficit");
     value.findings.forEach((finding, index) => {
+      // D39：歸因旗標只能放在軀幹前傾，且軀幹必須有狀況、請求中不能同時有髖伸展的問題
+      if (finding.hip_attributed_to_trunk === true) {
+        const onTrunk = finding.problem === "trunk_head_forward_lean";
+        if (!onTrunk || finding.severity === "normal" || hasHipFinding) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["findings", index, "hip_attributed_to_trunk"],
+            message: "hip_attributed_to_trunk requires a non-normal trunk finding and no hip finding (D39)",
+          });
+        }
+      }
+
       const subtype =
         finding.problem === "trunk_head_forward_lean" ? (finding.subtype ?? "trunk_forward_lean") : finding.subtype;
       const key = `${finding.problem}/${subtype ?? ""}`;

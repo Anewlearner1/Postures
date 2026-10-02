@@ -48,8 +48,30 @@ export interface PoseFrame {
   frameIndex: number;
   /** 這個影格在影片中的時間（秒）。 */
   timeSec: number;
-  /** 33 個關鍵點；偵測不到人時為 null。 */
+  /** 33 個關鍵點（依 MediaPipe 編號排列，正規化座標）；偵測不到人時為 null。 */
   landmarks: Landmark[] | null;
+  /**
+   * 選填：這個影格偵測到幾個人（MediaPipe 以 numPoses > 1 執行時才知道）。
+   * 有提供時用於 `multi_person` 拒絕判斷（§7.1）；沒提供時改用骨架跳動偵測。
+   */
+  poseCount?: number;
+}
+
+/** `analyzeGait` 的影片基本資訊（像素寬高用於 §0.2 座標轉換）。 */
+export interface AnalysisMeta {
+  /** 影片影格率（fps）。實際使用時以影格時間戳推得的有效影格率為準（抽幀時會較低）。 */
+  fps: number;
+  /** 影像寬、高（像素，旋轉後的實際畫面，§0.2 第 3 點）。 */
+  width: number;
+  height: number;
+  /** 影片長度（秒）。 */
+  durationSec: number;
+}
+
+/** `analyzeGait` 的選項。 */
+export interface AnalysisOptions {
+  /** 使用者勾選了孕婦／神經方面狀況／正在疼痛（D30、D35）。 */
+  populationCaveat?: boolean;
 }
 
 /** 一整段影片的骨架序列與影片基本資訊。 */
@@ -223,8 +245,14 @@ export interface Finding {
   /** 是否在界線 ±1.5 度內（§3.3「接近臨界」）。 */
   nearThreshold: boolean;
   candidateCauses: CauseCode[];
-  /** 問題出現的時間點（秒），給骨架回放時間軸使用。 */
+  /** 問題出現的時間點（秒），給骨架回放時間軸使用（D38）。只有輕度／明顯的問題才有。 */
   timestampsSec?: number[];
+  /**
+   * D39：只出現在軀幹前傾（trunk_forward_lean）的 finding。
+   * true = 這次「髖伸展偏小」被歸因於軀幹前傾（§3.2、D31），因此結果中「沒有」髖伸展的 finding，
+   * 軀幹卡片要顯示 UX §4.2 的固定文案。
+   */
+  hipAttributedToTrunk?: boolean;
 }
 
 /** 觀察項目（目前只有頭部位置，D25）：不分級、不給練習。 */
@@ -262,7 +290,86 @@ export interface AnalysisResult {
   observations: Observation[];
 }
 
-/** 分析的最終結果：成功產出報告，或依底線規則請使用者重拍（D13）。 */
+// ---------------------------------------------------------------------------
+// 5. 內部完整結果（§8 結尾：除錯、M5 校正、同意捐贈的骨架分析資料使用；不送 AI、不顯示給使用者）
+// ---------------------------------------------------------------------------
+
+/** 一趟直線行走的內部資訊。 */
+export interface PassDetail extends WalkingPass {
+  /** 鏡頭 roll 估計（度，§1.5）。 */
+  rollDeg: number;
+  /** visibility 與 z 對近側的判斷是否一致（§1.4）。 */
+  nearSideAgreement: boolean;
+  /** 這一趟的髖寬比中位數（§6.3 angle_off (a)、§7.1 not_side_view）。 */
+  hipWidthRatio: number;
+  /** 這一趟的腿長像素變化 (L_p95 − L_p5)/L_med（§6.3 angle_off (b)）。 */
+  legLengthVariation: number;
+  /** 事件偵測是否改用腳踝點（腳跟或腳尖看不清時，§2.1）。 */
+  usedAnkleFallback: boolean;
+}
+
+/** 單一週期的內部結果。 */
+export interface CycleDetail extends CycleMetrics {
+  /** 未通過 §2.4 檢查的原因（通過時沒有）。 */
+  rejectReason?: "event_order" | "cycle_time" | "stance_ratio" | "missing_keypoints" | "frame_edge";
+  /** 這個週期是否被採用為有效週期（加減速週期可能被排除，§2.2 第 6 點）。 */
+  used: boolean;
+  /** 正規化步速（腿長/秒，§2.7）。 */
+  speedLegPerSec?: number;
+  /** 各指標出現的代表時間點（秒，D38）。 */
+  timesSec: { PHE?: number; PKF_sw?: number; KIC?: number; TRK?: number };
+}
+
+/** 某一側的分級結果（D26：只存內部）。 */
+export interface SideGrade {
+  side: Side;
+  validCycles: number;
+  hip?: { severity: Severity; PHE: number; TE?: number; attributedToTrunk: boolean };
+  kneeSwing?: { severity: Severity; PKF_sw: number };
+  kneeStance?: { severity: Severity; KIC: number };
+}
+
+/** 13 個可信度因子的等級與量測值（§6.3）。 */
+export type ConfidenceFactors = Record<ConfidenceReason, { level: Confidence; value?: number }>;
+
+export interface AnalysisDetails {
+  /** 由影格時間戳推得的有效影格率。 */
+  effectiveFps: number;
+  /** 腿長（像素，§2.2）。 */
+  legLengthPx: number;
+  passes: PassDetail[];
+  events: GaitEvent[];
+  cycles: CycleDetail[];
+  sides: Partial<Record<Side, SideSummary>>;
+  sideGrades: Partial<Record<Side, SideGrade>>;
+  /** 擺盪期膝屈曲左右差（兩側皆 ≥ 2 個有效週期才有，§4.3）。 */
+  dPKF?: number;
+  /** 頸傾角中位數（D25：只存內部）。 */
+  NCK?: number;
+  /** 正規化步速中位數（腿長/秒，§2.7）。 */
+  speedLegPerSec?: number;
+  /** 步頻（步/分，§2.7，僅供參考）。 */
+  cadenceStepsPerMin?: number;
+  /** 被修正左右錯置的影格比例（§1.3）。 */
+  lrSwapFraction: number;
+  confidenceFactors: ConfidenceFactors;
+}
+
+/** 拒絕時的內部診斷數值（除錯用）。 */
+export interface RejectDetails {
+  detectedFraction?: number;
+  completeBodyFraction?: number;
+  effectiveFps?: number;
+  passes?: number;
+  validCycles?: number;
+  note?: string;
+}
+
+/**
+ * 分析的最終結果：成功產出報告，或依底線規則請使用者重拍（D13）。
+ * `details` 為內部完整結果（含左右側），**不可**送給 AI 或顯示給使用者；送 API 前一律經過
+ * `toReportRequest(result)`。
+ */
 export type AnalysisOutcome =
-  | { status: "ok"; result: AnalysisResult }
-  | { status: "rejected"; code: RejectCode };
+  | { status: "ok"; result: AnalysisResult; details?: AnalysisDetails }
+  | { status: "rejected"; code: RejectCode; details?: RejectDetails };

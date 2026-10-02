@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { AnalysisResult } from "@/lib/gait/types";
 import { SAMPLE_ANALYSIS } from "@/data/sample-analysis";
@@ -101,6 +102,70 @@ describe("POST /api/report 輸入驗證", () => {
   });
 });
 
+describe("gait-rules.md §8 的 JSON 範例", () => {
+  const text = readFileSync(new URL("../../../docs/spec/gait-rules.md", import.meta.url), "utf8");
+  const section = text.slice(text.indexOf("## 8. 閾值總表"), text.indexOf("## 9."));
+  const blocks = [...section.matchAll(/```json\n([\s\S]*?)```/g)].map((match) => JSON.parse(match[1]));
+
+  it("完整輸出範例（含 timestamps_sec）可以通過驗證", () => {
+    expect(blocks.length).toBeGreaterThanOrEqual(2);
+    expect(parseReportRequest(blocks[0]).ok).toBe(true);
+  });
+
+  it("D39 範例（沒有髖伸展、軀幹帶旗標）可以通過驗證", () => {
+    expect(parseReportRequest({ ...exampleRequest(), findings: blocks[1] }).ok).toBe(true);
+  });
+});
+
+describe("D39 歸因旗標 hip_attributed_to_trunk", () => {
+  /** 軀幹前傾輕度＋旗標、沒有髖伸展問題的請求。 */
+  function attributed() {
+    const draft = structuredClone(exampleRequest());
+    draft.findings = draft.findings.filter((f) => f.problem !== "hip_extension_deficit");
+    const trunk = draft.findings.find((f) => f.problem === "trunk_head_forward_lean")!;
+    Object.assign(trunk, {
+      severity: "mild",
+      metrics: { TRK: 9.5 },
+      candidate_causes: ["thoracic_stiffness", "pec_tightness"],
+      timestamps_sec: [2.1, 5.3],
+      hip_attributed_to_trunk: true,
+    });
+    return draft;
+  }
+
+  it("軀幹前傾（輕度以上）＋旗標、且沒有髖伸展問題 → 通過", () => {
+    expect(parseReportRequest(attributed()).ok).toBe(true);
+  });
+
+  it("旗標只能放在軀幹前傾", () => {
+    const draft = attributed();
+    (draft.findings[0] as Record<string, unknown>).hip_attributed_to_trunk = true; // 膝擺盪期
+    expect(parseReportRequest(draft).ok).toBe(false);
+  });
+
+  it("軀幹在常見範圍內時不可帶旗標", () => {
+    const draft = attributed();
+    const trunk = draft.findings.find((f) => f.problem === "trunk_head_forward_lean")!;
+    trunk.severity = "normal";
+    trunk.candidate_causes = [];
+    expect(parseReportRequest(draft).ok).toBe(false);
+  });
+
+  it("帶旗標時不可同時有髖伸展問題", () => {
+    const draft = attributed();
+    draft.findings.unshift(structuredClone(exampleRequest().findings[0]));
+    const result = parseReportRequest(draft);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.issues.some((issue) => issue.path.endsWith("hip_attributed_to_trunk"))).toBe(true);
+  });
+
+  it("旗標必須是布林值", () => {
+    const draft = attributed() as unknown as { findings: Array<Record<string, unknown>> };
+    draft.findings[draft.findings.length - 1].hip_attributed_to_trunk = "yes";
+    expect(parseReportRequest(draft).ok).toBe(false);
+  });
+});
+
 describe("toReportRequest：前端分析結果 → API 請求", () => {
   it("示範分析結果轉換後可以通過驗證", () => {
     expect(parseReportRequest(toReportRequest(SAMPLE_ANALYSIS)).ok).toBe(true);
@@ -113,5 +178,20 @@ describe("toReportRequest：前端分析結果 → API 請求", () => {
     expect(request.findings[0].metrics).toEqual({ PHE: 7 });
     expect(JSON.stringify(request)).not.toMatch(/NCK|"TE"|KLR/);
     expect(parseReportRequest(request).ok).toBe(true);
+  });
+
+  it("帶上 D38 時間點與 D39 旗標；旗標為 false／沒有時不帶", () => {
+    const result: AnalysisResult = structuredClone(SAMPLE_ANALYSIS);
+    result.findings = result.findings.filter((f) => f.problem !== "hip_extension_deficit");
+    const trunk = result.findings.find((f) => f.problem === "trunk_head_forward_lean")!;
+    Object.assign(trunk, { severity: "mild", metrics: { TRK: 9 }, candidateCauses: ["pec_tightness"], timestampsSec: [1.5], hipAttributedToTrunk: true });
+    const request = toReportRequest(result);
+    const trunkRequest = request.findings.find((f) => f.problem === "trunk_head_forward_lean")!;
+    expect(trunkRequest.hip_attributed_to_trunk).toBe(true);
+    expect(trunkRequest.timestamps_sec).toEqual([1.5]);
+    expect(parseReportRequest(request).ok).toBe(true);
+
+    trunk.hipAttributedToTrunk = false;
+    expect("hip_attributed_to_trunk" in toReportRequest(result).findings.find((f) => f.problem === "trunk_head_forward_lean")!).toBe(false);
   });
 });
