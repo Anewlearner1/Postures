@@ -69,7 +69,13 @@ describe("模板報告（降級方案）", () => {
     expect(report.populationCaveat).toBe(true);
     const first = report.problems[0].exercises[0];
     expect(first.gentle).toBe(true);
-    expect(first.steps).toEqual([getExercise(first.exerciseId!)!.regression]);
+    expect(first.steps).toEqual(getExercise(first.exerciseId!)!.regression_steps);
+    for (const card of report.problems) {
+      for (const exercise of card.exercises.filter((item) => item.steps.length > 0)) {
+        expect(exercise.steps).toEqual(getExercise(exercise.exerciseId!)!.regression_steps);
+        expect(exercise.steps.length).toBeGreaterThanOrEqual(3);
+      }
+    }
     for (const card of report.problems) expect(card.exercisesIntro).toContain("開始前請先諮詢專業人員");
   });
 

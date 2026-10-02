@@ -122,7 +122,7 @@ export function exerciseViewFromLibrary(id: string, options: { gentle: boolean; 
     exerciseId: exercise.id,
     name: exercise.name_zh,
     purpose: exercise.purpose,
-    steps: options.gentle ? [exercise.regression] : [...exercise.steps],
+    steps: options.gentle ? [...exercise.regression_steps] : [...exercise.steps],
     dosage: exercise.dosage.summary_zh,
     tip: exercise.safety.cautions[0] ?? exercise.common_mistakes[0],
   };

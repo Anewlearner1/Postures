@@ -11,7 +11,8 @@
  *      例如「膝蓋彎得較多」不可補擺盪期的 `swing-knee-lift-walking-cue`；沒有對題的動作時寧可少給。
  *   3. 整份報告最多 6 個不同動作；同一動作出現在多張卡片時只算一次，後面的卡片改成「見某某卡片」。
  *   4. 可信度「較低」（display = low）時，每張卡片最多 1 個，優先步態提示、其次伸展。
- *   6. 只提醒就醫的原因（pain_guarding 等）不加動作；population_caveat 時整份最多 3 個，並用退階版。
+ *   6. 只提醒就醫的原因（pain_guarding 等）不加動作；population_caveat 時整份最多 3 個，並用退階版；
+ *      且因為可能包含懷孕（D35 只知道「有勾選」），`glute-bridge` 一律換成 `standing-hip-extension`（避免長時間仰躺）。
  *   7. 頭部前傾只是觀察，不會進到這裡（observations 不產生卡片）。
  *
  *   數量上限的分配方式：依卡片優先順序「輪流」分配（每張卡片先拿第 1 個，再輪第 2 個……），
@@ -118,8 +119,23 @@ function pickForSlot(slot: Slot, pool: string[], taken: Set<string>): string | u
   return undefined;
 }
 
+/** population_caveat 時的動作替換（§3 規則 6）：仰躺的臀橋改成站姿後抬腿。 */
+export const POPULATION_CAVEAT_SUBSTITUTES: Readonly<Record<string, string>> = {
+  "glute-bridge": "standing-hip-extension",
+};
+
+/** 套用替換並去除重複（替換後與既有動作重複時只留第一個）。 */
+function substitute(pool: string[], substitutes: Readonly<Record<string, string>>): string[] {
+  const result: string[] = [];
+  for (const id of pool) {
+    const replaced = substitutes[id] ?? id;
+    if (isActiveExercise(replaced) && !result.includes(replaced)) result.push(replaced);
+  }
+  return result;
+}
+
 /** 單張卡片「理想上」要放的動作（還沒套用整份報告的數量上限）。 */
-function planCard(finding: ReportRequestFinding, lowConfidence: boolean): string[] {
+function planCard(finding: ReportRequestFinding, lowConfidence: boolean, populationCaveat: boolean): string[] {
   const usableCauses = finding.candidate_causes.filter(
     (cause) => !isReferOnlyCause(cause) && isActiveCause(cause) && causeFitsSubtype(cause, finding.subtype),
   );
@@ -128,9 +144,13 @@ function planCard(finding: ReportRequestFinding, lowConfidence: boolean): string
   if (onlyReferCauses) return []; // §3 規則 6：只有就醫提醒的原因，不給動作
 
   // 沒有可用（對題）的候選原因時，直接用該問題（同子型態）的全部對應列
-  const primary = poolFromCauses(finding.problem, finding.subtype, usableCauses.length > 0 ? usableCauses : null);
+  const substitutes = populationCaveat ? POPULATION_CAVEAT_SUBSTITUTES : {};
+  const primary = substitute(
+    poolFromCauses(finding.problem, finding.subtype, usableCauses.length > 0 ? usableCauses : null),
+    substitutes,
+  );
   // §3 規則 2：從同問題其他原因補；D40：只補同子型態的原因，沒有對題的動作就少給
-  const fallback = poolFromCauses(finding.problem, finding.subtype, null);
+  const fallback = substitute(poolFromCauses(finding.problem, finding.subtype, null), substitutes);
 
   const chosen: string[] = [];
   const taken = new Set<string>();
@@ -154,7 +174,7 @@ export function selectExercises(request: ReportRequest): ExerciseSelection {
     .filter((finding) => finding.severity === "normal")
     .map((finding) => ({ cardId: cardIdOf(finding), finding }));
 
-  const plans = abnormal.map((finding) => planCard(finding, lowConfidence));
+  const plans = abnormal.map((finding) => planCard(finding, lowConfidence, request.population_caveat));
   const cards: SelectedCard[] = abnormal.map((finding) => ({
     cardId: cardIdOf(finding),
     finding,

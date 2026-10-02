@@ -48,6 +48,8 @@ const exerciseSchema = z
       .strict(),
     common_mistakes: z.array(z.string()),
     regression: z.string().min(1),
+    /** 退階版的完整步驟（可獨立閱讀，3–6 步）；population_caveat 時顯示這個（exercise-library.md §3 規則 6）。 */
+    regression_steps: z.array(z.string().min(1)).min(3).max(6),
     progression: z.string(),
     safety: z
       .object({

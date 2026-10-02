@@ -159,4 +159,35 @@ describe("動作挑選規則（exercise-library.md §3）", () => {
       for (const id of SWING_ONLY) expect(stance.exerciseIds).not.toContain(id);
     });
   });
+
+  describe("規則 6：population_caveat 時臀橋改成站姿後抬腿", () => {
+    const hipGlute = (populationCaveat: boolean): ReportRequest => ({
+      ...withFinding({ severity: "marked", candidate_causes: ["glute_weakness"] }),
+      population_caveat: populationCaveat,
+    });
+
+    it("沒有 population_caveat 時照常選臀橋", () => {
+      const [card] = selectExercises(hipGlute(false)).cards;
+      expect(card.exerciseIds).toContain("glute-bridge");
+    });
+
+    it("有 population_caveat 時不出現臀橋，改為站姿後抬腿", () => {
+      const [card] = selectExercises(hipGlute(true)).cards;
+      expect(card.exerciseIds).not.toContain("glute-bridge");
+      expect(card.exerciseIds).toContain("standing-hip-extension");
+      expect(new Set(card.exerciseIds).size).toBe(card.exerciseIds.length); // 替換後不重複
+    });
+
+    it("各種組合下，population_caveat 時整份報告都不會出現臀橋", () => {
+      for (const severity of ["mild", "marked"] as const) {
+        const request = { ...allProblemsRequest(severity), population_caveat: true };
+        request.findings = request.findings.map((finding) =>
+          finding.problem === "hip_extension_deficit" ? { ...finding, candidate_causes: ["glute_weakness"] } : finding,
+        );
+        const selection = selectExercises(request);
+        expect(selection.cards.flatMap((card) => card.exerciseIds)).not.toContain("glute-bridge");
+        expect(selection.uniqueExerciseIds.length).toBeLessThanOrEqual(MAX_EXERCISES_POPULATION_CAVEAT);
+      }
+    });
+  });
 });
