@@ -24,7 +24,7 @@ export default function GuidePage() {
         <div className="flex aspect-[4/3] items-center justify-center rounded-2xl border-2 border-dashed border-line bg-surface p-4 text-center text-sm text-muted lg:sticky lg:top-20 lg:self-start">
           示意圖佔位：整體擺設俯視圖
           <br />
-          （手機與走路路線垂直、距離約 3 公尺）
+          （手機與走路路線垂直、距離約 4 公尺）
         </div>
         <GuideTipList />
       </div>
@@ -35,7 +35,7 @@ export default function GuidePage() {
           {COMMON_MISTAKES.map((item) => (
             <li key={item.mistake} className="rounded-xl bg-surface p-4">
               <p className="font-semibold">
-                <span className="mr-1 text-sev-marked">避免</span>
+                <span className="mr-1 text-sev-marked-text">避免</span>
                 {item.mistake}
               </p>
               <p className="text-muted">→ {item.fix}</p>

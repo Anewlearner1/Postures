@@ -21,7 +21,7 @@ import {
   SEEK_CARE,
 } from "@/data/report-copy";
 import { DISCLAIMER_COPY, PRODUCT_NAME, STANDARD_LABEL } from "@/data/site";
-import type { ReportView } from "@/lib/report/types";
+import type { ExerciseView, ReportView } from "@/lib/report/types";
 import type { MetricRow } from "./ProblemCard";
 
 export interface Keyframe {
@@ -158,29 +158,14 @@ export function PrintReport({
             </div>
           )}
           <div>
-            <h3 className="font-semibold">建議練習</h3>
-            {problem.exercisesIntro && <p className="font-semibold">{problem.exercisesIntro}</p>}
-            {problem.exercises.map((exercise) => (
-              <div key={exercise.name} className="mt-2 break-inside-avoid rounded border border-gray-400 p-2">
-                <p className="font-semibold">
-                  {exercise.name}
-                  {exercise.gentle && <span className="ml-2 text-xs font-normal">（{POPULATION_CAVEAT_COPY.gentleLabel}）</span>}
-                </p>
-                {exercise.why && <p>{exercise.why}</p>}
-                {exercise.purpose && <p>{exercise.steps.length > 0 ? `練什麼：${exercise.purpose}` : exercise.purpose}</p>}
-                {exercise.steps.length > 0 && (
-                  <ol className="list-decimal pl-5">
-                    {exercise.steps.map((step) => (
-                      <li key={step}>{step}</li>
-                    ))}
-                  </ol>
-                )}
-                {exercise.dosage && <p>份量：{exercise.dosage}</p>}
-                {exercise.tip && <p>小提醒：{exercise.tip}</p>}
-                {exercise.alsoFor && exercise.alsoFor.length > 0 && (
-                  <p className="text-sm">這個練習也對應：{exercise.alsoFor.map((name) => `「${name}」`).join("")}</p>
-                )}
-              </div>
+            {/* 標題和第一個練習放在一起，不讓標題單獨留在頁底（M5 QA F-12） */}
+            <div className="break-inside-avoid">
+              <h3 className="font-semibold">建議練習</h3>
+              {problem.exercisesIntro && <p className="font-semibold">{problem.exercisesIntro}</p>}
+              {problem.exercises[0] && <PrintExercise exercise={problem.exercises[0]} />}
+            </div>
+            {problem.exercises.slice(1).map((exercise) => (
+              <PrintExercise key={exercise.name} exercise={exercise} />
             ))}
             <p className="mt-1 text-sm">{EXERCISE_SAFETY}</p>
           </div>
@@ -213,6 +198,8 @@ export function PrintReport({
         </section>
       )}
 
+      {/* 最後幾個區塊和頁尾放在一起，避免最後一頁只剩頁尾（M5 QA F-12） */}
+      <div className="break-inside-avoid space-y-5">
       {report.headObservation && (
         <section className="break-inside-avoid">
           <h2 className="text-lg font-bold">{HEAD_OBSERVATION_TITLE}</h2>
@@ -233,6 +220,32 @@ export function PrintReport({
           {DOWNLOAD_COPY.generatedAt(formatDate(generatedAt))}
         </p>
       </footer>
+      </div>
     </article>
+  );
+}
+
+function PrintExercise({ exercise }: { exercise: ExerciseView }) {
+  return (
+    <div className="mt-2 break-inside-avoid rounded border border-gray-400 p-2">
+      <p className="font-semibold">
+        {exercise.name}
+        {exercise.gentle && <span className="ml-2 text-xs font-normal">（{POPULATION_CAVEAT_COPY.gentleLabel}）</span>}
+      </p>
+      {exercise.why && <p>{exercise.why}</p>}
+      {exercise.purpose && <p>{exercise.steps.length > 0 ? `練什麼：${exercise.purpose}` : exercise.purpose}</p>}
+      {exercise.steps.length > 0 && (
+        <ol className="list-decimal pl-5">
+          {exercise.steps.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
+      )}
+      {exercise.dosage && <p>份量：{exercise.dosage}</p>}
+      {exercise.tip && <p>小提醒：{exercise.tip}</p>}
+      {exercise.alsoFor && exercise.alsoFor.length > 0 && (
+        <p className="text-sm">這個練習也對應：{exercise.alsoFor.map((name) => `「${name}」`).join("")}</p>
+      )}
+    </div>
   );
 }

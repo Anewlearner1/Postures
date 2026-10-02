@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { isHevc, parseMoov, readContainerVideoInfo } from "./mp4-metadata";
+import { isHevc, isTruncatedMp4, parseMoov, readContainerVideoInfo } from "./mp4-metadata";
 
 function u32(value: number): number[] {
   return [(value >>> 24) & 255, (value >>> 16) & 255, (value >>> 8) & 255, value & 255];
@@ -97,5 +97,29 @@ describe("isHevc", () => {
     expect(isHevc("hev1")).toBe(true);
     expect(isHevc("avc1")).toBe(false);
     expect(isHevc(undefined)).toBe(false);
+  });
+});
+
+describe("isTruncatedMp4（M5 QA F-06）", () => {
+  const full = file(box("ftyp", ascii("isom"), u32(0)), box("moov", videoTrak()), box("mdat", new Array(5000).fill(1)));
+
+  it("完整的檔案：沒有被截掉", async () => {
+    await expect(isTruncatedMp4(reader(full), full.length)).resolves.toBe(false);
+  });
+
+  it("後半段被截掉（影片資料不完整）", async () => {
+    const cut = full.subarray(0, full.length - 2000);
+    await expect(isTruncatedMp4(reader(cut), cut.length)).resolves.toBe(true);
+  });
+
+  it("目錄在檔尾、檔案被截掉時也看得出來", async () => {
+    const moovLast = file(box("ftyp", ascii("isom")), box("mdat", new Array(5000).fill(1)), box("moov", videoTrak()));
+    const cut = moovLast.subarray(0, 3000);
+    await expect(isTruncatedMp4(reader(cut), cut.length)).resolves.toBe(true);
+  });
+
+  it("不是 MP4 的檔案不判斷（交給瀏覽器）", async () => {
+    const bytes = new Uint8Array(ascii("RIFF....AVI LIST this is not an mp4 file at all"));
+    await expect(isTruncatedMp4(reader(bytes), bytes.length)).resolves.toBe(false);
   });
 });

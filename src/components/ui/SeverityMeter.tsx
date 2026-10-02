@@ -14,9 +14,9 @@ const COLOR: Record<Severity, string> = {
 };
 
 const TEXT_COLOR: Record<Severity, string> = {
-  normal: "text-sev-normal",
-  mild: "text-sev-mild",
-  marked: "text-sev-marked",
+  normal: "text-sev-normal-text",
+  mild: "text-sev-mild-text",
+  marked: "text-sev-marked-text",
 };
 
 export function SeverityMeter({ severity }: { severity: Severity }) {

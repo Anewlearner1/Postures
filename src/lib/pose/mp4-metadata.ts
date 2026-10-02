@@ -165,6 +165,42 @@ export async function readContainerVideoInfo(read: ByteReader, fileSize: number)
   }
 }
 
+/** 常見的 MP4／MOV 最上層 box 類型（用來確認這真的是 MP4／MOV 檔）。 */
+const TOP_LEVEL_TYPES = new Set(["ftyp", "moov", "mdat", "free", "skip", "wide", "uuid", "pnot", "meta", "moof", "mfra", "styp", "sidx", "pdin"]);
+
+/**
+ * 檢查 MP4／MOV 是否「後半段被截掉」（傳輸中斷、雲端相簿還沒下載完，M5 QA F-06）：
+ * 最上層某個 box 宣告的長度超過檔案實際大小。只讀各 box 的標頭（幾個位元組）。
+ * 不是 MP4／MOV 的檔案回傳 false（交給瀏覽器判斷）。
+ */
+export async function isTruncatedMp4(read: ByteReader, fileSize: number): Promise<boolean> {
+  try {
+    let offset = 0;
+    let first = true;
+    while (offset + 8 <= fileSize) {
+      const header = await read(offset, 16);
+      if (header.length < 8) return false;
+      const dv = view(header);
+      let size = dv.getUint32(0);
+      const type = fourcc(header, 4);
+      if (first && !TOP_LEVEL_TYPES.has(type)) return false;
+      first = false;
+      if (size === 1) {
+        if (header.length < 16) return true;
+        size = readU64(dv, 8);
+      } else if (size === 0) {
+        return false; // 長度 0 = 延伸到檔案結尾，無法判斷
+      }
+      if (size < 8) return false;
+      if (offset + size > fileSize) return true;
+      offset += size;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 /** HEVC（高效率格式）的編碼代碼；部分瀏覽器無法播放（UX §5.6）。 */
 export function isHevc(codec: string | undefined): boolean {
   return codec === "hvc1" || codec === "hev1";

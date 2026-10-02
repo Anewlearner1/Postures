@@ -29,6 +29,12 @@
   --color-sev-normal: #2f855a;
   --color-sev-mild: #b7791f;
   --color-sev-marked: #c05621;
+
+  /* 嚴重度的「文字」顏色：比色塊深，白底與淺色底的對比都 ≥ 4.5:1（WCAG AA，M5 QA F-11）。
+     色塊（指示條）維持上面的原色。 */
+  --color-sev-normal-text: #276749;
+  --color-sev-mild-text: #8a5a00;
+  --color-sev-marked-text: #9c4221;
 }
 
 :root {
@@ -68,5 +74,12 @@ details[open] > summary .summary-arrow {
   body {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+  /* 標題不要單獨留在頁底（M5 QA F-12） */
+  h1,
+  h2,
+  h3,
+  h4 {
+    break-after: avoid;
   }
 }

@@ -5,7 +5,7 @@
  *   - 按鈕與連結都有名稱（螢幕閱讀器念得出來）
  *   - 不認得的錯誤代碼 /retake/xxx → 404「找不到這個頁面」
  *   - 鍵盤：上傳頁可以用 Tab 走到「選擇影片」並用空白鍵打開檔案選擇
- *   - 已知問題（test.fixme，見 docs/review/M5-qa.md）：選擇影片的焦點看不到、橘色文字對比不足
+ *   - M5 QA 已修正：選擇影片的焦點框（F-10）、橘色文字對比（F-11）
  */
 
 import { expect, test, type Page } from "@playwright/test";
@@ -89,7 +89,7 @@ test.describe("基本無障礙與版面", () => {
 
   // F-10：檔案輸入框是 sr-only（1×1 像素），框線畫在看不到的元素上；外面的大框（label）沒有 focus 樣式，
   // 鍵盤使用者 Tab 到這裡時畫面上看不出焦點在哪。
-  test.fixme("F-10 Tab 到「選擇影片」時，畫面上看得到焦點框", async ({ page }) => {
+  test("F-10 Tab 到「選擇影片」時，畫面上看得到焦點框", async ({ page }) => {
     await page.goto("/upload");
     await page.getByTestId("video-input").focus();
     const visibleRing = await page.evaluate(() => {
@@ -104,7 +104,7 @@ test.describe("基本無障礙與版面", () => {
 
   // F-11：輕度的橘色（sev-mild，#B7791F）在白底上對比 3.6:1，低於 WCAG AA 的 4.5:1
   // （示範報告標語、嚴重度「輕度：可以留意」、「僅供參考」）。
-  test.fixme("F-11 示範報告的「這是示範報告（假資料）」文字對比 ≥ 4.5:1", async ({ page }) => {
+  test("F-11 示範報告的「這是示範報告（假資料）」文字對比 ≥ 4.5:1", async ({ page }) => {
     await page.goto("/report/sample");
     const banner = page.getByText("這是示範報告（假資料）").filter({ visible: true }).first();
     await expect(banner).toBeVisible({ timeout: 20_000 });

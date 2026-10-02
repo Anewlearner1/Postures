@@ -6,7 +6,7 @@
  *   影片只在這台裝置的記憶體中讀取，不會上傳。
  */
 
-import { blobReader, isHevc, readContainerVideoInfo } from "./mp4-metadata";
+import { blobReader, isHevc, isTruncatedMp4, readContainerVideoInfo } from "./mp4-metadata";
 import type { VideoMeta } from "./preflight";
 
 export type ReadVideoMetaResult =
@@ -17,6 +17,8 @@ const METADATA_TIMEOUT_MS = 15_000;
 
 /** 讀取影片資訊。失敗時回傳對應的錯誤代碼（UX §5.6、§5.9）。 */
 export async function readVideoMeta(file: File): Promise<ReadVideoMetaResult> {
+  // 後半段被截掉的檔案：先擋下，不要分析到一半才失敗（M5 QA F-06）
+  if (await isTruncatedMp4(blobReader(file), file.size)) return { ok: false, code: "video_unreadable" };
   const container = await readContainerVideoInfo(blobReader(file), file.size);
 
   const video = document.createElement("video");

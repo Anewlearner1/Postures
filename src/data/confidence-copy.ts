@@ -34,7 +34,7 @@ export const CONFIDENCE_REASON_COPY: Record<ConfidenceReason, { reason: string; 
   },
   subject_small: {
     reason: "你在畫面中看起來比較小，關節位置不容易看清楚。",
-    fix: "手機往前移，距離走路路線約 3 公尺，讓身體佔畫面高度的一半以上。",
+    fix: "手機往前移，距離走路路線約 4 公尺，讓身體佔畫面高度的一半以上。",
   },
   partial_out_of_frame: {
     reason: "有一段時間頭或腳超出畫面。",

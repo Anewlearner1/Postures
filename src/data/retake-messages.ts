@@ -45,6 +45,14 @@ export interface RetakeMessage {
   secondary?: RetakeAction;
 }
 
+/**
+ * 秒數、影格率顯示用：無條件捨去成整數，
+ * 避免「5.9 秒被擋下卻寫『只有 6 秒』」這種和下限矛盾的說法（M5 QA F-07）。
+ */
+export function floorForDisplay(value: number): number {
+  return Math.floor(value + 1e-9);
+}
+
 const RESELECT: RetakeAction = { kind: "link", label: "重新選擇影片", href: "/upload" };
 const SEE_GUIDE: RetakeAction = { kind: "link", label: "看拍攝教學", href: "/guide" };
 
@@ -56,7 +64,7 @@ export const RETAKE_MESSAGES: Record<RetakeCode, RetakeMessage> = {
     solutions: [
       "確認選擇的是走路影片",
       "在光線充足的地方重拍，避免背光",
-      "手機離走路路線約 3 公尺，讓人在畫面中夠大",
+      "手機離走路路線約 4 公尺，讓人在畫面中夠大",
     ],
     primary: RESELECT,
     secondary: SEE_GUIDE,
@@ -91,7 +99,7 @@ export const RETAKE_MESSAGES: Record<RetakeCode, RetakeMessage> = {
     describe: ({ durationSec }) =>
       durationSec === undefined
         ? null
-        : `這段影片只有 ${Math.max(1, Math.round(durationSec))} 秒。我們需要 10–20 秒的影片，才能拍到足夠的步伐。`,
+        : `這段影片${durationSec < 1 ? "不到 1 秒" : `只有 ${floorForDisplay(durationSec)} 秒`}。我們需要 10–20 秒的影片，才能拍到足夠的步伐。`,
     solutions: ["重拍一段 10–20 秒的影片，在平地上來回走 3 趟。"],
     primary: RESELECT,
     secondary: SEE_GUIDE,
@@ -122,7 +130,7 @@ export const RETAKE_MESSAGES: Record<RetakeCode, RetakeMessage> = {
     describe: ({ fps }) =>
       fps === undefined
         ? null
-        : `這段影片每秒只有 ${Math.round(fps)} 個畫面（fps），會錯過走路時的重要動作，我們沒辦法準確分析。常見原因是用了縮時攝影、省電模式，或影片被壓縮過（例如透過通訊軟體傳送）。`,
+        : `這段影片每秒只有 ${floorForDisplay(fps)} 個畫面（fps），會錯過走路時的重要動作，我們沒辦法準確分析。常見原因是用了縮時攝影、省電模式，或影片被壓縮過（例如透過通訊軟體傳送）。`,
     solutions: [
       "用手機的一般「錄影」模式重拍，畫質設定為 1080p、30 fps",
       "如果影片是別人用 LINE 等通訊軟體傳給你的，請對方用「原始檔案」或雲端連結傳送",

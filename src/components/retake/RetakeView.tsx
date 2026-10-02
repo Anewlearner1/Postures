@@ -33,7 +33,7 @@ export function RetakeView({ code, onReselect, vars }: RetakeViewProps) {
   return (
     <div className="grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:items-start">
       {/* 插圖佔位（正式版依錯誤類型換示意圖或偵測失敗的畫面） */}
-      <div className="flex aspect-[4/3] items-center justify-center rounded-2xl bg-surface text-sev-mild">
+      <div className="flex aspect-[4/3] items-center justify-center rounded-2xl bg-surface text-sev-mild-text">
         <AlertIcon className="h-16 w-16" />
       </div>
 

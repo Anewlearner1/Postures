@@ -20,6 +20,19 @@ export const POPULATION_CHECKS = {
   privacy: "這些答案只留在你的裝置上，不會被保存。",
 } as const;
 
+/**
+ * 確認頁：偵測到直式影片（M5 QA F-14）。改寫自 UX §3.1 常見錯誤「直著拍 → 走沒兩步就出畫面了，請橫著拍」。【待審閱】
+ */
+export const PORTRAIT_NOTICE =
+  "這段影片是直著拍的。直式畫面比較窄，走沒兩步就容易出畫面；下次請橫著拿手機拍，結果會比較準。這次仍然可以繼續分析。";
+
+/** 上傳頁：上一次的報告還在記憶體裡時（M5 QA F-03）。【待審閱】 */
+export const PREVIOUS_REPORT_COPY = {
+  title: "你上一次的報告還在。",
+  body: "選擇新的影片後，上一次的報告就會被取代；重新整理或關閉頁面也會消失。",
+  back: "回到報告",
+} as const;
+
 /** 上傳頁：讀取影片資訊時。【待審閱】 */
 export const CHECKING_VIDEO = "正在讀取影片…";
 

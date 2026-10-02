@@ -148,7 +148,7 @@ export type PipelineOutcome =
       performance: PipelinePerformance;
     }
   | { kind: "rejected"; code: RejectCode; performance?: PipelinePerformance }
-  | { kind: "error"; code: "model_load_failed" | "analysis_interrupted"; detail: string }
+  | { kind: "error"; code: "model_load_failed" | "analysis_interrupted" | "video_unreadable"; detail: string }
   | { kind: "cancelled" };
 
 function isAbort(error: unknown): boolean {
@@ -222,7 +222,10 @@ export async function runAnalysisPipeline(
   } catch (error) {
     if (signal.aborted || isAbort(error)) return { kind: "cancelled" };
     if (error instanceof PoseModelLoadError) return { kind: "error", code: "model_load_failed", detail: error.message };
-    return { kind: "error", code: "analysis_interrupted", detail: error instanceof Error ? error.message : String(error) };
+    const detail = error instanceof Error ? error.message : String(error);
+    // 影片本身讀不下去（例如後半段損毀、傳輸中斷的檔案）：「再試一次」沒有用，改請使用者確認影片（M5 QA F-06）
+    if (/^video error/.test(detail)) return { kind: "error", code: "video_unreadable", detail };
+    return { kind: "error", code: "analysis_interrupted", detail };
   } finally {
     detector?.close();
   }

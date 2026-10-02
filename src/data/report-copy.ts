@@ -133,6 +133,8 @@ export const METRICS_COPY = {
     TRK: "身體前傾",
   },
   value: (deg: number) => `約 ${deg} 度`,
+  /** 髖部後伸是 0 或負值（大腿沒有伸到身體後方）時，不顯示負數（M5 QA F-08）。【待審閱】 */
+  noHipExtension: "幾乎沒有往後伸（大腿沒有伸到身體後方）",
   rangeAtLeast: (deg: number) => `約 ${deg} 度以上`,
   rangeAtMost: (deg: number) => `約 ${deg} 度以下`,
   rangeBelow: (deg: number) => `小於 ${deg} 度`,

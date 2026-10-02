@@ -16,6 +16,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useReducer, useRef, useState } from "react";
 import { useAnalysisSession } from "@/components/session/AnalysisSession";
+import { useBackGuard } from "@/components/session/useBackGuard";
 import { useLeaveGuard } from "@/components/session/useLeaveGuard";
 import { buttonClass } from "@/components/ui/ButtonLink";
 import { AlertIcon, CheckIcon, LockIcon } from "@/components/ui/icons";
@@ -103,6 +104,16 @@ export function AnalysisRunner() {
   const controllerRef = useRef<AbortController | null>(null);
 
   useLeaveGuard(running && Boolean(video), ANALYZE_COPY.leaveConfirm);
+  // 瀏覽器「返回」鍵也要先確認，不要默默取消分析（M5 QA F-05）
+  const { release } = useBackGuard(running && Boolean(video), ({ stay, leave }) => {
+    if (window.confirm(ANALYZE_COPY.leaveConfirm)) {
+      setRunning(false);
+      controllerRef.current?.abort();
+      leave();
+    } else {
+      stay();
+    }
+  });
 
   // 沒有影片（直接開網址、重新整理）→ 回上傳頁
   useEffect(() => {
@@ -182,7 +193,10 @@ export function AnalysisRunner() {
       },
       emit,
       controller.signal,
-    ).then((outcome) => {
+    ).then(async (outcome) => {
+      if (disposed || outcome.kind === "cancelled") return;
+      // 先拿掉「返回鍵守門紀錄」，換頁後按返回才不會又回到分析頁
+      await release();
       if (disposed) return;
       setRunning(false);
       if (outcome.kind === "report") {
@@ -209,12 +223,13 @@ export function AnalysisRunner() {
       controller.abort();
       releaseWakeLock();
     };
-  }, [video, populationCaveat, router, setCompleted]);
+  }, [video, populationCaveat, router, setCompleted, release]);
 
-  function cancelAnalysis() {
-    setRunning(false);
+  async function cancelAnalysis() {
     controllerRef.current?.abort();
-    router.push("/upload");
+    await release();
+    setRunning(false);
+    router.replace("/upload");
   }
 
   if (!video) return null;
@@ -315,7 +330,7 @@ export function AnalysisRunner() {
           </ol>
 
           <p className="flex items-start gap-2 rounded-xl bg-surface p-4 text-sm">
-            <AlertIcon className="mt-0.5 h-4 w-4 shrink-0 text-sev-mild" />
+            <AlertIcon className="mt-0.5 h-4 w-4 shrink-0 text-sev-mild-text" />
             <span className="md:hidden">
               <strong>{ANALYZE_COPY.keepOpenMobile}</strong>
               {ANALYZE_COPY.keepOpenMobileDetail}
@@ -346,7 +361,7 @@ export function AnalysisRunner() {
                 <button type="button" className={buttonClass("primary")} onClick={() => setConfirmingCancel(false)}>
                   {ANALYZE_COPY.cancelConfirmKeep}
                 </button>
-                <button type="button" className={buttonClass("secondary")} onClick={cancelAnalysis}>
+                <button type="button" className={buttonClass("secondary")} onClick={() => void cancelAnalysis()}>
                   {ANALYZE_COPY.cancelConfirmStop}
                 </button>
               </div>

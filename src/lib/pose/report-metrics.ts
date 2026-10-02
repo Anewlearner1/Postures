@@ -24,7 +24,10 @@ export function metricRow(metric: UserMetric): MetricRowText {
         ? METRICS_COPY.rangeBelow(metric.normalMaxDeg)
         : METRICS_COPY.rangeAtMost(metric.normalMaxDeg);
   }
-  return { label: METRICS_COPY.labels[metric.key], value: METRICS_COPY.value(metric.valueDeg), ...(range ? { range } : {}) };
+  // 髖部後伸 ≤ 0 度：一般人看不懂負的角度，改用白話（M5 QA F-08）
+  const value =
+    metric.key === "PHE" && metric.valueDeg <= 0 ? METRICS_COPY.noHipExtension : METRICS_COPY.value(metric.valueDeg);
+  return { label: METRICS_COPY.labels[metric.key], value, ...(range ? { range } : {}) };
 }
 
 /** 依卡片 id 整理（只有演算法有提供 userMetric 的問題才有）。 */

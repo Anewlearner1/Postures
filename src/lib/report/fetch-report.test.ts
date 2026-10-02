@@ -25,7 +25,53 @@ describe("fetchReport", () => {
     expect(result.report.problems.length).toBeGreaterThan(0);
   });
 
-  it("其他 4xx（資料格式錯誤）照樣回報錯誤", async () => {
+  it.each([403, 404, 413, 500, 502])("HTTP %i 時改用瀏覽器端模板（F-04）", async (status) => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("<html>error</html>", { status })));
+    await expect(fetchReport(SAMPLE_ANALYSIS, VIDEO)).resolves.toMatchObject({ source: "local_template" });
+  });
+
+  it("200 但內容不是 JSON（例如公共 Wi-Fi 登入頁）時改用模板（F-04）", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("<html>login</html>", { status: 200 })));
+    await expect(fetchReport(SAMPLE_ANALYSIS, VIDEO)).resolves.toMatchObject({ source: "local_template" });
+  });
+
+  it("200 的 JSON 不是報告格式時改用模板（F-04）", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response('{"hello":1}', { status: 200 })));
+    await expect(fetchReport(SAMPLE_ANALYSIS, VIDEO)).resolves.toMatchObject({ source: "local_template" });
+  });
+
+  it("伺服器一直沒有回應：逾時後改用模板（F-02）", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        (_url: string, init: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            init.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+          }),
+      ),
+    );
+    await expect(fetchReport(SAMPLE_ANALYSIS, VIDEO, { timeoutMs: 20 })).resolves.toMatchObject({
+      source: "local_template",
+    });
+  });
+
+  it("使用者取消時照樣丟出取消錯誤（不產生報告）", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        (_url: string, init: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            init.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+          }),
+      ),
+    );
+    const controller = new AbortController();
+    const pending = fetchReport(SAMPLE_ANALYSIS, VIDEO, { signal: controller.signal });
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("400（本程式送錯格式）照樣回報錯誤", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response('{"error":"invalid_request"}', { status: 400 })));
     await expect(fetchReport(SAMPLE_ANALYSIS, VIDEO)).rejects.toBeInstanceOf(ReportRequestError);
   });

@@ -3,7 +3,7 @@
  *   - 每個代碼都有標題、說明與主要按鈕
  *   - 帶數字的說明（秒數、fps）不可以和「被擋下的原因」互相矛盾
  *     例如 5.9 秒被判「太短」（下限 6 秒），文案卻寫「只有 6 秒」。
- * 已知問題用 it.fails 記錄（見 docs/review/M5-qa.md F-07），修正後改成 it。
+ * F-07（見 docs/review/M5-qa.md）已修正：秒數與影格率無條件捨去成整數。
  */
 
 import { describe, expect, it } from "vitest";
@@ -31,12 +31,12 @@ describe("錯誤／請重拍文案", () => {
     expect(RETAKE_MESSAGES.too_short.describe?.({ durationSec: 4.2 })).toContain("只有 4 秒");
   });
 
-  it.fails("F-07 太短：5.9 秒被擋下時，文案不可寫成「只有 6 秒」（下限就是 6 秒）", () => {
+  it("F-07 太短：5.9 秒被擋下時，文案不可寫成「只有 6 秒」（下限就是 6 秒）", () => {
     const text = RETAKE_MESSAGES.too_short.describe?.({ durationSec: 5.9 }) ?? "";
     expect(text).not.toContain(`只有 ${PREFLIGHT_LIMITS.minDurationSec} 秒`);
   });
 
-  it.fails("F-07 影格率太低：14.6 fps 被擋下時，文案不可寫成「每秒只有 15 個畫面」（下限就是 15）", () => {
+  it("F-07 影格率太低：14.6 fps 被擋下時，文案不可寫成「每秒只有 15 個畫面」（下限就是 15）", () => {
     const text = RETAKE_MESSAGES.low_fps_reject.describe?.({ fps: 14.6 }) ?? "";
     expect(text).not.toContain(`只有 ${PREFLIGHT_LIMITS.minFps} 個畫面`);
   });

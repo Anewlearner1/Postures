@@ -43,8 +43,8 @@ interface SkeletonReplayProps {
 
 const SPEEDS = [0.25, 0.5, 1] as const;
 const DEFAULT_SPEED = 0.5;
-/** 卡片編號的顏色（UX §4.6：顏色＋編號，不能只靠顏色；不用紅色）。 */
-const MARKER_COLORS = ["#17796b", "#b7791f", "#3b5bdb", "#6b46c1"];
+/** 卡片編號的顏色（UX §4.6：顏色＋編號，不能只靠顏色；不用紅色）。白字在上面的對比都 ≥ 4.5:1。 */
+const MARKER_COLORS = ["#17796b", "#975a16", "#3b5bdb", "#6b46c1"];
 const LABEL_MS = 3000;
 /** 跳到問題時間點後，脈動圓圈顯示多久（前 1 秒以 0.5x 播放約 2 秒＋停住後 3 秒）。 */
 const PULSE_MS = 5000;

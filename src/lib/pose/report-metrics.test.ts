@@ -18,6 +18,10 @@ describe("metricRow", () => {
       range: "約 12 度以上",
     });
   });
+  it("髖部後伸是 0 或負值時不顯示負數（F-08）", () => {
+    expect(metricRow({ key: "PHE", valueDeg: -7, normalMinDeg: 12 }).value).toBe("幾乎沒有往後伸（大腿沒有伸到身體後方）");
+    expect(metricRow({ key: "PHE", valueDeg: 0, normalMinDeg: 12 }).value).not.toContain("0 度");
+  });
   it("上限型：KIC 含界線、TRK 不含界線", () => {
     expect(metricRow({ key: "KIC", valueDeg: 15, normalMaxDeg: 12, normalMaxInclusive: true }).range).toBe("約 12 度以下");
     expect(metricRow({ key: "TRK", valueDeg: 9, normalMaxDeg: 7, normalMaxInclusive: false }).range).toBe("小於 7 度");

@@ -115,6 +115,16 @@ describe("runAnalysisPipeline", () => {
     expect(detector.close).toHaveBeenCalled();
   });
 
+  it("影片本身讀不下去（例如後半段損毀）→ video_unreadable（M5 QA F-06）", async () => {
+    const { deps } = makeDeps({
+      extract: vi.fn(async () => {
+        throw new Error("video error 3");
+      }),
+    });
+    const { outcome } = await run(deps);
+    expect(outcome).toMatchObject({ kind: "error", code: "video_unreadable" });
+  });
+
   it("使用者取消 → cancelled，不再往下做", async () => {
     const controller = new AbortController();
     const { deps } = makeDeps({

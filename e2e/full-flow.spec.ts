@@ -10,7 +10,7 @@
  *   - 報告 API 失敗（500、502、429 流量限制、斷線）→ 報告照樣出現，改用標準版說明（SPEC §3 降級方案）
  *   - 模型載入失敗、影片中沒有人 → 對應的請重拍頁
  *   - 分析中取消、分析中點頁首連結（確認視窗）、報告頁重新整理
- *   - 已知問題（test.fixme，見 docs/review/M5-qa.md）：API 沒有回應（逾時）、返回鍵離開報告頁
+ *   - M5 QA 已修正：API 沒有回應（逾時，F-02）、返回鍵離開報告頁（F-03）
  */
 
 import path from "node:path";
@@ -123,8 +123,8 @@ test.describe("完整流程（合成骨架）", () => {
     await expect(page.getByText("白話說明目前暫時無法產生").filter({ visible: true }).first()).toBeVisible();
   });
 
-  // F-02：fetchReport 沒有逾時；手機網路卡住時，畫面永遠停在「撰寫你的報告」。
-  test.fixme("F-02 報告 API 沒有回應 → 約 35 秒內應降級為模板報告", async ({ page }) => {
+  // F-02（已修正）：fetchReport 等 35 秒沒有回應就改用瀏覽器端模板，報告照樣出現。
+  test("F-02 報告 API 沒有回應 → 約 35 秒內應降級為模板報告", async ({ page }) => {
     test.setTimeout(180_000);
     await page.route("**/api/report", () => undefined);
     await startAnalysis(page, syntheticTrack());
@@ -177,6 +177,37 @@ test.describe("完整流程（合成骨架）", () => {
     await expect(page).toHaveURL(/\/analyze$/);
   });
 
+  test("F-05 分析中按瀏覽器返回 → 先確認；選取消就繼續分析並產生報告，確定則回到上傳頁", async ({ page }) => {
+    desktopOnly();
+    await startAnalysis(page, syntheticTrack(), { delayMs: 40 });
+    await expect(page.getByText(/找出身體關節位置（\d+\/\d+ 畫面）/)).toBeVisible({ timeout: 30_000 });
+
+    let message = "";
+    page.once("dialog", (dialog) => {
+      message = dialog.message();
+      void dialog.dismiss();
+    });
+    await page.goBack();
+    await expect.poll(() => message).toContain("要取消分析嗎");
+    await expect(page).toHaveURL(/\/analyze$/);
+    await waitForOutcome(page);
+    await expect(page).toHaveURL(/\/report$/);
+    // 報告頁按返回：回到上傳頁（不會又回到分析頁重跑），報告仍保留
+    await page.goBack();
+    await expect(page).toHaveURL(/\/upload$/);
+    await expect(page.getByRole("link", { name: "回到報告" })).toBeVisible();
+  });
+
+  test("F-05 分析中按返回並確定離開 → 回到上傳頁", async ({ page }) => {
+    desktopOnly();
+    await startAnalysis(page, syntheticTrack(), { delayMs: 40 });
+    await expect(page.getByText(/找出身體關節位置（\d+\/\d+ 畫面）/)).toBeVisible({ timeout: 30_000 });
+    page.once("dialog", (dialog) => void dialog.accept());
+    await page.goBack();
+    await expect(page).toHaveURL(/\/upload$/);
+    await expect(page.getByRole("heading", { name: "選擇一段走路影片" })).toBeVisible();
+  });
+
   test("報告頁重新整理 → 先跳出離開確認；確定後報告消失、回到上傳頁", async ({ page }) => {
     desktopOnly();
     await startAnalysis(page, syntheticTrack());
@@ -202,8 +233,8 @@ test.describe("完整流程（合成骨架）", () => {
     await expect(page.getByRole("heading", { name: "你的走路分析報告" })).toBeVisible();
   });
 
-  // F-03：瀏覽器「返回」會回到 /upload，上傳頁一進來就清掉報告，沒有任何確認（Android 返回鍵很常按到）。
-  test.fixme("F-03 報告頁按瀏覽器返回鍵 → 應先確認，或返回後報告仍在", async ({ page }) => {
+  // F-03（已修正）：上傳頁不再一進來就清掉報告，等使用者選了新影片才取代；返回後再前進，報告還在。
+  test("F-03 報告頁按瀏覽器返回鍵 → 應先確認，或返回後報告仍在", async ({ page }) => {
     await startAnalysis(page, syntheticTrack());
     await waitForOutcome(page);
     await page.goBack();

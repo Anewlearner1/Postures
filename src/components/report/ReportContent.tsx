@@ -90,7 +90,7 @@ export function ReportContent({
     />
     <PageContainer width="wide" className="space-y-6 pb-28 print:hidden lg:pb-12">
       {notice?.tone === "demo" && (
-        <p className="rounded-lg border-2 border-dashed border-sev-mild px-3 py-2 text-sm font-semibold text-sev-mild">
+        <p className="rounded-lg border-2 border-dashed border-sev-mild px-3 py-2 text-sm font-semibold text-sev-mild-text">
           {notice.text}
         </p>
       )}
@@ -123,7 +123,7 @@ export function ReportContent({
       {report.lowConfidence && (
         <div className="rounded-xl border border-sev-mild bg-amber-50 p-4">
           <p className="flex items-center gap-2 font-bold">
-            <AlertIcon className="h-5 w-5 text-sev-mild" />
+            <AlertIcon className="h-5 w-5 text-sev-mild-text" />
             這次結果的可信度較低，僅供參考
           </p>
           <p className="mt-1">{report.lowConfidence.reason}</p>
@@ -221,7 +221,7 @@ export function ReportContent({
         {!allNormal && report.goodItems.length > 0 && (
           <details className="rounded-2xl border border-line px-4 lg:col-start-2">
             <summary className="flex min-h-12 items-center gap-2 py-2 font-bold">
-              <CheckIcon className="h-5 w-5 text-sev-normal" />
+              <CheckIcon className="h-5 w-5 text-sev-normal-text" />
               看起來不錯（{report.goodItems.length} 項）
             </summary>
             <ul className="space-y-2 pb-4">

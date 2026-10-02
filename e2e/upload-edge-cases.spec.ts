@@ -4,7 +4,7 @@
  *   - 剛好 6 秒以上可以分析；超過 30 秒只分析前 20 秒並提示
  *   - 副檔名大寫、瀏覽器不知道類型（部分 Android）的 MOV
  *   - 直式影片的預覽比例
- *   - 已知問題（test.fixme）：5.9 秒被擋下，文案卻寫「只有 6 秒」
+ *   - F-07（已修正）：5.9 秒被擋下時，文案寫「只有 5 秒」，不會和 6 秒下限矛盾
  *
  * 測試影片都是 VP9 編碼（Playwright 內建的 Chromium 不支援 H.264），畫面是單色，只有長度、比例不同。
  */
@@ -73,6 +73,20 @@ test.describe("上傳前檢查：邊界情況", () => {
     expect(box!.height).toBeGreaterThan(box!.width);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(0);
+    // F-14：直式影片提醒下次橫著拍（仍可繼續分析）
+    await expect(page.getByTestId("portrait-notice")).toContainText("橫著拿手機拍");
+  });
+
+  test("F-06 後半段被截掉的 MP4 → 上傳檢查就擋下（這段影片無法播放）", async ({ page }) => {
+    const { readFile } = await import("node:fs/promises");
+    const full = await readFile(path.join(FIXTURES, "blank-16s-vp9.mp4"));
+    await page.goto("/upload");
+    await page.getByTestId("video-input").setInputFiles({
+      name: "cut.mp4",
+      mimeType: "video/mp4",
+      buffer: full.subarray(0, Math.floor(full.length * 0.6)),
+    });
+    await expect(page.getByRole("heading", { name: "這段影片無法播放" })).toBeVisible({ timeout: 20_000 });
   });
 
   test("重新選擇影片：換一支影片後，摘要跟著更新", async ({ page }) => {
@@ -85,7 +99,7 @@ test.describe("上傳前檢查：邊界情況", () => {
   });
 
   // F-07：5.9 秒四捨五入成「6 秒」，但下限就是 6 秒，使用者會看不懂為什麼被擋。
-  test.fixme("F-07 5.9 秒的影片被擋下時，文案不應寫「只有 6 秒」", async ({ page }) => {
+  test("F-07 5.9 秒的影片被擋下時，文案不應寫「只有 6 秒」", async ({ page }) => {
     await page.goto("/upload");
     await page.getByTestId("video-input").setInputFiles(path.join(FIXTURES, "blank-5_9s-vp9.mp4"));
     await expect(page.getByRole("heading", { name: "影片太短了" })).toBeVisible({ timeout: 20_000 });

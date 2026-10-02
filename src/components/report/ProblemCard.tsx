@@ -69,7 +69,7 @@ export function ProblemCard({
                   接近分界
                 </span>
               )}
-              {lowConfidence && <span className="text-sm font-semibold text-sev-mild">僅供參考</span>}
+              {lowConfidence && <span className="text-sm font-semibold text-sev-mild-text">僅供參考</span>}
             </div>
           </header>
         </summary>
