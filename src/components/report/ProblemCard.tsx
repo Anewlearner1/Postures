@@ -8,7 +8,7 @@
 import type { ReactNode } from "react";
 import { ChevronRightIcon } from "@/components/ui/icons";
 import { SeverityMeter } from "@/components/ui/SeverityMeter";
-import { CAUSES_INTRO, EXERCISE_SAFETY } from "@/data/report-copy";
+import { CAUSES_INTRO, EXERCISE_SAFETY, POPULATION_CAVEAT_COPY } from "@/data/report-copy";
 import type { ProblemCardView } from "@/lib/report/types";
 
 export function ProblemCard({ problem, lowConfidence = false }: { problem: ProblemCardView; lowConfidence?: boolean }) {
@@ -28,6 +28,14 @@ export function ProblemCard({ problem, lowConfidence = false }: { problem: Probl
         <p className="text-sm">{problem.subtitle}</p>
         <div className="flex flex-wrap items-center gap-3 pt-1">
           <SeverityMeter severity={problem.severity} />
+          {problem.nearThreshold && (
+            <span
+              className="rounded-full border border-line px-2 py-0.5 text-sm text-muted"
+              title="這次的數值很接近兩個等級的分界，拍攝條件稍有不同，結果就可能差一級。"
+            >
+              接近分界
+            </span>
+          )}
           {lowConfidence && <span className="text-sm font-semibold text-sev-mild">僅供參考</span>}
         </div>
       </header>
@@ -57,18 +65,34 @@ export function ProblemCard({ problem, lowConfidence = false }: { problem: Probl
           </ul>
         </Collapsible>
         <Collapsible title={`建議練習（${problem.exercises.length} 個）`}>
+          {problem.exercisesIntro && <p className="font-semibold">{problem.exercisesIntro}</p>}
           {problem.exercises.map((exercise) => (
             <div key={exercise.name} className="rounded-xl bg-surface p-4">
-              <p className="font-semibold">{exercise.name}</p>
-              {exercise.purpose && <p>練什麼：{exercise.purpose}</p>}
-              <p className="mt-1">怎麼做：</p>
-              <ol className="list-decimal pl-5">
-                {exercise.steps.map((step) => (
-                  <li key={step}>{step}</li>
-                ))}
-              </ol>
+              <p className="font-semibold">
+                {exercise.name}
+                {exercise.gentle && (
+                  <span className="ml-2 rounded-full border border-line px-2 py-0.5 text-xs font-normal text-muted">
+                    {POPULATION_CAVEAT_COPY.gentleLabel}
+                  </span>
+                )}
+              </p>
+              {exercise.why && <p>{exercise.why}</p>}
+              {exercise.purpose && <p>{exercise.steps.length > 0 ? `練什麼：${exercise.purpose}` : exercise.purpose}</p>}
+              {exercise.steps.length > 0 && (
+                <>
+                  <p className="mt-1">怎麼做：</p>
+                  <ol className="list-decimal pl-5">
+                    {exercise.steps.map((step) => (
+                      <li key={step}>{step}</li>
+                    ))}
+                  </ol>
+                </>
+              )}
               {exercise.dosage && <p className="mt-1">份量：{exercise.dosage}</p>}
               {exercise.tip && <p className="mt-1 text-muted">小提醒：{exercise.tip}</p>}
+              {exercise.alsoFor && exercise.alsoFor.length > 0 && (
+                <p className="mt-1 text-sm text-muted">這個練習也對應：{exercise.alsoFor.map((name) => `「${name}」`).join("")}</p>
+              )}
             </div>
           ))}
           <p className="text-sm text-muted">{EXERCISE_SAFETY}</p>

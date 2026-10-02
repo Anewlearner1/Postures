@@ -8,9 +8,12 @@
 | `guide-tips.ts` | 拍攝教學 7 條重點、常見錯誤、小提醒 | UX 文件 §3.1 |
 | `retake-messages.ts` | 錯誤／請重拍頁的文案（依錯誤代碼） | UX 文件 §5 |
 | `report-copy.ts` | 報告頁的固定文案：嚴重度標籤、就醫提醒、離開提醒 | UX 文件 §4、§6.3 |
-| `sample-report.ts` | 報告頁的**假資料**（只用來展示版面，不是真的分析結果） | UX 文件 §4 的範本 |
+| `sample-report.ts` | 報告頁的**假資料**（M2 早期展示版面用；報告頁現在改用 `sample-analysis.ts` 呼叫 API） | UX 文件 §4 的範本 |
+| `sample-analysis.ts` | **示範用的分析結果**（假資料），報告頁用它呼叫 `/api/report` | gait-rules.md §8 格式 |
+| `exercises.json` | **訓練動作庫**（SPEC D34：唯一資料來源）。修改後要同步 `docs/spec/exercise-library.md` 結尾的 JSON，兩邊不一致時測試會失敗 | exercise-library.md §9 |
+| `problem-copy.ts` | 問題卡片的固定文案（白話名稱、我們看到什麼範本、這代表什麼）、總結語範本、同等級排序 | UX 文件 §4.2–§4.4 |
+| `confidence-copy.ts` | 可信度原因的說明與改善建議 | UX 文件 §4.5 |
 
 **之後會加入**
 
-- `exercises.json`：動作庫（SPEC D34：M3 起從 `docs/spec/exercise-library.md` 結尾的 JSON 抽出，作為唯一資料來源）
 - 閾值設定檔（可能放在 `src/lib/rules/`，見該資料夾說明）

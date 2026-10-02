@@ -3,7 +3,8 @@
  *   定義「報告頁要顯示的內容」的資料格式（只有型別，沒有邏輯）。
  *   M4 時，`src/lib/report/` 會把分析結果（AnalysisResult）加上文案與 AI 白話說明，
  *   組成這裡的 ReportView，報告頁只負責把它畫出來。
- *   目前報告頁使用 `src/data/sample-report.ts` 的假資料。
+ *   報告頁透過 `fetch-report.ts` 呼叫 POST /api/report 取得報告內容（ReportBody），
+ *   再補上只存在瀏覽器裡的影片資訊（步數、影片長度、時間軸標記），組成 ReportView。
  */
 
 import type { ConfidenceDisplay, Severity } from "@/lib/gait/types";
@@ -19,6 +20,14 @@ export interface ExerciseView {
   dosage?: string;
   /** 小提醒。 */
   tip?: string;
+  /** 動作庫 id（例如 "glute-bridge"）。 */
+  exerciseId?: string;
+  /** 「為什麼建議這個動作」的白話連結句（AI 撰寫；降級時沒有）。 */
+  why?: string;
+  /** 顯示的是退階（較溫和）版本（population_caveat，UX §4.2）。 */
+  gentle?: boolean;
+  /** 這個練習同時對應的其他卡片白話名稱（exercise-library.md §3 規則 3）。 */
+  alsoFor?: string[];
 }
 
 /** 一張問題卡片（UX 文件 §4.3）。 */
@@ -42,6 +51,10 @@ export interface ProblemCardView {
   exercises: ExerciseView[];
   /** 卡片專屬的固定注意事項（例如膝蓋彎得較多的就醫提醒）。 */
   note?: string;
+  /** 數值接近兩個等級的分界（UX §4.3.0「接近分界」標籤）。 */
+  nearThreshold?: boolean;
+  /** 「建議練習」區塊的第一行（例如適用情況提醒、低可信度時先重拍確認）。 */
+  exercisesIntro?: string;
 }
 
 /** 骨架回放時間軸上的標記（UX 文件 §4.6）。 */
@@ -74,4 +87,22 @@ export interface ReportView {
   timelineMarkers: TimelineMarker[];
   /** 影片長度標籤，例如 "0:14"。 */
   durationLabel: string;
+  /** 使用者勾選了適用情況提醒（D30／D35）：報告頂端顯示提醒、練習用較溫和版本、最多 3 個。 */
+  populationCaveat?: boolean;
+}
+
+/** 只存在瀏覽器裡、不送到伺服器的影片資訊（由前端補上）。 */
+export type ReportVideoFields = "stepsAnalyzed" | "durationSec" | "durationLabel" | "timelineMarkers";
+
+/** POST /api/report 回傳的報告內容：ReportView 去掉影片資訊。 */
+export type ReportBody = Omit<ReportView, ReportVideoFields>;
+
+/**
+ * POST /api/report 的回應。
+ *   source = "ai"：總結語、「我們看到什麼」、練習連結句由 Claude 撰寫（未通過檢查的段落已換回模板文字）。
+ *   source = "template"：全部使用模板文字（沒有金鑰、Claude 失敗或逾時，降級方案）。
+ */
+export interface ReportApiResponse {
+  source: "ai" | "template";
+  report: ReportBody;
 }
