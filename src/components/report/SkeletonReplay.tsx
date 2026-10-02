@@ -64,6 +64,7 @@ export function SkeletonReplay({
   trimmed,
   markers,
 }: SkeletonReplayProps) {
+  const sectionRef = useRef<HTMLElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -88,6 +89,16 @@ export function SkeletonReplay({
     [markers],
   );
   const toleranceSec = 1.5 / Math.max(1, poses.fps);
+  // 太靠近的標記上下錯開，避免疊在一起看不到編號
+  const markerOffsets = useMemo(() => {
+    const offsets: number[] = [];
+    markers.forEach((marker, index) => {
+      const previous = markers[index - 1];
+      const tooClose = previous && (marker.timeSec - previous.timeSec) / Math.max(durationSec, 0.001) < 0.035;
+      offsets.push(tooClose && offsets[index - 1] === 0 ? -16 : 0);
+    });
+    return offsets;
+  }, [markers, durationSec]);
 
   // ---- 畫骨架 ----
   const draw = useCallback(() => {
@@ -213,11 +224,17 @@ export function SkeletonReplay({
     seekTo(video.currentTime + direction / Math.max(1, sourceFps));
   }
 
+  /** 手機版先捲到回放區（UX §4.6）；電腦版回放區固定在左欄，不用捲動。 */
+  const scrollToReplay = useCallback(() => {
+    if (window.matchMedia("(min-width: 1024px)").matches) return;
+    sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
   const jumpToMarker = useCallback(
     (marker: ReplayMarker) => {
       const video = videoRef.current;
       if (!video) return;
-      containerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      scrollToReplay();
       video.pause();
       video.currentTime = Math.max(0, marker.timeSec - 1);
       video.playbackRate = 0.5;
@@ -229,7 +246,7 @@ export function SkeletonReplay({
       setPulsing(true);
       void video.play().catch(() => undefined);
     },
-    [],
+    [scrollToReplay],
   );
 
   useImperativeHandle(
@@ -238,10 +255,10 @@ export function SkeletonReplay({
       focusCard(cardId: string) {
         const marker = markers.find((item) => item.cardId === cardId);
         if (marker) jumpToMarker(marker);
-        else containerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        else scrollToReplay();
       },
     }),
-    [markers, jumpToMarker],
+    [markers, jumpToMarker, scrollToReplay],
   );
 
   async function toggleFullscreen() {
@@ -264,7 +281,7 @@ export function SkeletonReplay({
   const pct = (seconds: number) => `${Math.min(100, Math.max(0, (seconds / Math.max(duration, 0.001)) * 100))}%`;
 
   return (
-    <section id="replay" className="scroll-mt-20 rounded-2xl border border-line p-4" aria-labelledby="replay-title">
+    <section ref={sectionRef} id="replay" className="scroll-mt-20 rounded-2xl border border-line p-4" aria-labelledby="replay-title">
       <h2 id="replay-title" className="text-lg font-bold">
         {REPLAY_COPY.title}
       </h2>
@@ -272,13 +289,14 @@ export function SkeletonReplay({
 
       <div
         ref={containerRef}
-        className={`relative mx-auto mt-3 overflow-hidden bg-black ${fullscreen ? "h-full w-full" : "rounded-xl"}`}
+        className={`relative mx-auto mt-3 overflow-hidden bg-black [--replay-max-h:60vh] lg:[--replay-max-h:52vh] ${fullscreen ? "h-full w-full" : "rounded-xl"}`}
         style={
           fullscreen
             ? undefined
             : {
                 aspectRatio: `${poses.videoWidth} / ${poses.videoHeight}`,
-                width: `min(100%, calc(70vh * ${poses.videoWidth} / ${poses.videoHeight}))`,
+                // 直式影片限制高度（電腦版左欄固定時，控制列與時間軸也要在畫面內）
+                width: `min(100%, calc(var(--replay-max-h) * ${poses.videoWidth} / ${poses.videoHeight}))`,
               }
         }
       >
@@ -414,7 +432,7 @@ export function SkeletonReplay({
             type="button"
             onClick={() => jumpToMarker(marker)}
             className="absolute top-1/2 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center"
-            style={{ left: pct(marker.timeSec) }}
+            style={{ left: pct(marker.timeSec), marginTop: markerOffsets[index] }}
             aria-label={`${marker.markerNumber} ${marker.label}（${formatClock(marker.timeSec)}）`}
             data-testid="replay-marker"
           >

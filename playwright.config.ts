@@ -14,6 +14,8 @@ const PORT = 3100;
 
 export default defineConfig({
   testDir: "e2e",
+  // 測試失敗時的截圖與記錄放在 node_modules/.cache（已在 .gitignore 範圍內，不會被放進 Git）
+  outputDir: "node_modules/.cache/playwright-results",
   timeout: 60_000,
   fullyParallel: false,
   reporter: "list",

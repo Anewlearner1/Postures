@@ -9,9 +9,9 @@
 
 完整規格請看 **[`docs/SPEC.md`](docs/SPEC.md)**。
 
-> 目前進度：里程碑 2（專案骨架）。所有頁面都已建立，可以從首頁一路點到報告頁，
-> 但**還沒有真正的影片分析功能**——報告頁用示範用的分析結果呼叫報告 API（`/api/report`），
-> 沒有設定 Claude API 金鑰時，報告使用固定範本文字。
+> 目前進度：里程碑 3（核心分析）。上傳影片後，會在使用者的瀏覽器裡用 MediaPipe 逐格找出骨架、
+> 計算步態指標、產生報告，並在報告頁疊上骨架回放。沒有設定 Claude API 金鑰時，報告使用固定範本文字。
+> 示範報告（假資料）在 `/report/sample`。
 
 ---
 
@@ -36,6 +36,9 @@ node -v
 npm install
 ```
 
+第一次執行 `npm run dev` 或 `npm run build` 時，會自動下載骨架偵測模型（約 9 MB，需要網路），
+說明見下方「骨架偵測模型檔（MediaPipe）」。
+
 ### 3. 啟動網站
 
 ```bash
@@ -55,6 +58,8 @@ npm run dev
 | `npm run lint` | 檢查程式寫法有沒有常見問題 |
 | `npm run typecheck` | 檢查資料型別有沒有寫錯 |
 | `npm test` | 執行自動化測試 |
+| `npm run test:e2e` | 在真的瀏覽器（Chromium）裡操作網站的端到端測試（會先建置網站）。加上 `E2E_WALK_VIDEO=影片路徑` 可用真實走路影片跑完整流程 |
+| `npm run mediapipe:fetch` | 手動準備骨架偵測模型檔與 WASM（平常會自動執行） |
 
 ---
 
@@ -64,9 +69,10 @@ npm run dev
 |---|---|---|
 | `/` | 首頁 | 產品說明、開始按鈕、免責聲明、常見問題 |
 | `/guide` | 拍攝教學 | 7 個拍攝重點、常見錯誤、小提醒 |
-| `/upload` | 上傳影片 | 選擇影片、檢查格式與大小、上傳前確認清單（必勾「年滿 18 歲」） |
-| `/analyze` | 分析中 | 進度畫面（目前是示意） |
-| `/report` | 報告 | 用示範分析結果呼叫 `/api/report`，展示報告版面 |
+| `/upload` | 上傳影片 | 選擇影片；檢查格式、大小、長度、影格率；上傳前確認清單（必勾「年滿 18 歲」、選填適用情況） |
+| `/analyze` | 分析中 | 在裝置上逐格偵測骨架、計算指標、產生報告；顯示真實進度。沒有影片時回到 `/upload` |
+| `/report` | 報告 | 這次分析的結果＋骨架回放（只存在瀏覽器記憶體；重新整理後回到 `/upload`） |
+| `/report/sample` | 示範報告 | 用示範分析結果（假資料）呼叫 `/api/report`，展示報告版面 |
 | `/api/report` | 報告 API（給程式用） | 收到分析結果（角度與判斷，不含影像），回傳白話報告；說明見 `src/lib/report/README.md` |
 | `/retake/錯誤代碼` | 錯誤／請重拍 | 例如 `/retake/no_person`，依代碼顯示不同說明 |
 | `/privacy` | 隱私權說明 | 草稿，待法律審閱 |
@@ -78,6 +84,9 @@ npm run dev
 
 ```
 docs/                    規格文件（產品規格、判斷規則、動作庫、UX 文案）
+e2e/                     端到端測試（Playwright，在真的瀏覽器裡操作網站）
+public/mediapipe/        骨架偵測模型與 WASM（自動下載，不放進 Git）
+scripts/                 輔助程式（準備 MediaPipe 模型檔）
 src/
   app/                   每個資料夾就是一個網址（例如 app/guide/ → /guide）
     api/report/          報告 API（POST /api/report，只在伺服器上執行）
@@ -90,15 +99,15 @@ src/
     home/                首頁示意圖
     guide/               拍攝重點清單
     upload/              上傳頁的互動部分
-    analyze/             分析中畫面（目前是示意）
-    report/              報告頁的問題卡片、骨架回放、就醫提醒
+    analyze/             分析中畫面（真實進度）
+    report/              報告頁的問題卡片、骨架回放播放器、就醫提醒
     retake/              錯誤／請重拍畫面
     session/             在頁面之間暫時記住使用者選的影片（只在瀏覽器記憶體中）
   data/                  文案與資料（想改字先來這裡）——說明見 src/data/README.md
   lib/                   程式邏輯
-    pose/                骨架偵測（MediaPipe）——尚未實作
-    gait/                步態事件與指標計算——目前只有資料型別 types.ts
-    rules/               規則判斷與可信度——尚未實作
+    pose/                骨架偵測（MediaPipe）、影片前置檢查、分析流程、骨架繪製（含測試）
+    gait/                步態事件與指標計算（演算法）
+    rules/               規則判斷與可信度（演算法）
     report/              報告組裝：挑選練習、模板文字、呼叫 Claude、檢查 AI 文字（含測試）
     upload/              上傳前的檔案格式／大小檢查（含測試）
 ```
@@ -116,11 +125,48 @@ src/
 
 ---
 
+## 骨架偵測模型檔（MediaPipe）
+
+骨架偵測使用 Google 的 MediaPipe Pose Landmarker（`full` 模型），**在使用者的瀏覽器裡執行**。
+為了讓「影片只在你的裝置上分析」的說法成立，模型與執行檔都放在本網站自己的 `public/mediapipe/`，
+使用者的瀏覽器只向本網站下載，**不會在執行時連到 Google**：
+
+| 檔案 | 大小 | 來源 |
+|---|---|---|
+| `public/mediapipe/pose_landmarker_full.task` | 約 9.0 MB | Google 官方模型庫（固定版本 1，下載後核對 SHA-256） |
+| `public/mediapipe/wasm/vision_wasm_internal.js`、`.wasm` | 約 0.3 MB＋11.2 MB | npm 套件 `@mediapipe/tasks-vision`（版本固定為 1.0.1） |
+
+- 這些檔案很大，**不放進 Git**。`npm run dev`、`npm run build` 前會自動執行 `scripts/fetch-mediapipe-model.mjs`
+  準備好（已存在且正確就跳過）。Vercel 部署時也會在建置時自動下載，不需要額外設定。
+- 沒有網路時：`npm run dev` 仍可啟動，但「開始分析」會顯示「無法載入分析工具」；`npm run build` 會停止並提示。
+  有網路後執行 `npm run mediapipe:fetch` 即可。
+- 使用者第一次分析時，瀏覽器要下載約 21 MB（之後有快取）。
+- MediaPipe 內建「使用統計」回傳功能（每分鐘把任務類型、作業系統、處理速度送到 Google，不含影像）。
+  本網站在骨架偵測的背景執行緒中**擋下所有對外連線**，所以這些統計不會送出。
+
+### 處理速度（沙盒實測，2026-10）
+
+在沒有顯示卡的雲端沙盒（Linux、Playwright 內建 Chromium 141、無頭模式）量測，CPU 運算：
+
+| 影片 | 格數 | 骨架偵測速度 | 總時間（含載入模型約 1 秒） |
+|---|---|---|---|
+| 640×360、30 fps、8 秒（測試圖樣，沒有人） | 240 | 約 21 格／秒（每格偵測約 35 毫秒） | 約 12 秒 |
+| 1920×1080、30 fps、15 秒（只拍到腳） | 450 | 約 12 格／秒（每格偵測約 69 毫秒） | 約 39 秒 |
+| 1080×1920 直拍、30 fps、18 秒（真人走路，Wikimedia Commons） | 540 | 約 11–12 格／秒（每格偵測約 68–73 毫秒） | 約 45–52 秒 |
+
+- 逐格讀取方式：先「慢速播放取格」（解碼器依序解，快），漏格再「跳轉補格」。只用跳轉時，1080p 影片每格要 100–275 毫秒，
+  同一段 15 秒影片要 250 秒；改成播放取格後約 38 秒。送進模型前畫面縮到長邊 960 像素（比 1280 再快約 15%）。
+- GPU（WebGL）在沙盒中是軟體模擬，只有約 1.6 格／秒，所以目前**預設用 CPU**；手機實機上 GPU 可能較快，
+  M5 實測後再決定（量測方法：瀏覽器主控台執行 `localStorage.setItem("postures:pose-delegate", "GPU")`）。
+- 一般使用者的手機與筆電需在 M5 實測；預估 15 秒、30 fps 影片約 30 秒到 1.5 分鐘，符合 UX「30 秒～2 分鐘」的說法。
+
 ## 技術選型（簡述）
 
 - **Next.js + TypeScript**：前後端放在同一個專案
 - **Tailwind CSS**：樣式與響應式設計
 - **Vitest**：自動化測試（之後的步態演算法都要有測試）
+- **Playwright**：端到端測試（在 Chromium 裡實際操作網站；`npm run test:e2e`）
+- **MediaPipe Pose Landmarker**：在瀏覽器裡偵測骨架（模型自架，見上方說明）
 - 字型使用裝置內建的系統字型，不需要從網路下載
 
 詳細理由見 [`docs/SPEC.md`](docs/SPEC.md) 第 4 節。

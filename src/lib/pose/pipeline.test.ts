@@ -44,7 +44,7 @@ function makeDeps(overrides: Partial<PipelineDeps> & { outcome?: AnalysisOutcome
     extract: vi.fn(async (_detector, { onProgress }) => {
       const sequence = fakeSequence();
       sequence.frames.forEach((frame, i) => onProgress({ done: i + 1, total: 3, frame }));
-      return { sequence, stats: { totalMs: 100, framesPerSecond: 30, avgInferenceMs: 20, avgPrepareMs: 5 } };
+      return { sequence, stats: { totalMs: 100, framesPerSecond: 30, avgInferenceMs: 20, playedFrames: 3, seekedFrames: 0 } };
     }),
     loadAnalyzer: vi.fn(async () => analyze),
     fetchReport: vi.fn(async () => fakeReport),
@@ -90,7 +90,7 @@ describe("runAnalysisPipeline", () => {
   it("演算法拒絕 → 回傳拒絕代碼，不呼叫報告 API", async () => {
     const { deps } = makeDeps({ outcome: { status: "rejected", code: "no_gait_cycle" } });
     const { outcome } = await run(deps);
-    expect(outcome).toEqual({ kind: "rejected", code: "no_gait_cycle" });
+    expect(outcome).toMatchObject({ kind: "rejected", code: "no_gait_cycle" });
     expect(deps.fetchReport).not.toHaveBeenCalled();
   });
 

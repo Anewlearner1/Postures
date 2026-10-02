@@ -25,7 +25,7 @@ export const POSE_LANDMARKER_OPTIONS = {
 } as const;
 
 /** 送進模型前把畫面縮小到長邊最多幾像素（關鍵點座標是 0–1 比例，縮放不影響結果，只省記憶體與傳輸）。 */
-export const MAX_INPUT_LONG_SIDE = 1280;
+export const MAX_INPUT_LONG_SIDE = 960;
 
 /** 運算方式：CPU（WASM＋SIMD）或 GPU（WebGL）。選 GPU 但無法使用時自動改用 CPU。 */
 export type PoseDelegate = "GPU" | "CPU";

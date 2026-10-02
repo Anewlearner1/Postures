@@ -175,7 +175,7 @@ export function AnalysisRunner() {
               drawPreviewSkeleton(update.frame.landmarks);
             },
             onPreviewFrame: drawPreview,
-            beforeFrame: waitUntilVisible,
+            waitUntilVisible,
           }),
         loadAnalyzer: loadAnalyzeGait,
         fetchReport: (result, info, signal) => fetchReport(result, info, { signal }),
@@ -195,6 +195,7 @@ export function AnalysisRunner() {
         });
         router.replace("/report");
       } else if (outcome.kind === "rejected") {
+        console.info("[pose] rejected", outcome.code, outcome.performance);
         router.replace(`/retake/${outcome.code}`);
       } else if (outcome.kind === "error") {
         console.warn("[pose] analysis failed:", outcome.detail);

@@ -147,7 +147,7 @@ export type PipelineOutcome =
       report: FetchedReport;
       performance: PipelinePerformance;
     }
-  | { kind: "rejected"; code: RejectCode }
+  | { kind: "rejected"; code: RejectCode; performance?: PipelinePerformance }
   | { kind: "error"; code: "model_load_failed" | "analysis_interrupted"; detail: string }
   | { kind: "cancelled" };
 
@@ -200,7 +200,8 @@ export async function runAnalysisPipeline(
       { populationCaveat: input.populationCaveat },
     );
     const analyzeMs = performance.now() - analyzeStarted;
-    if (outcome.status === "rejected") return { kind: "rejected", code: outcome.code };
+    const perf: PipelinePerformance = { delegate, modelLoadMs, extract: stats, analyzeMs };
+    if (outcome.status === "rejected") return { kind: "rejected", code: outcome.code, performance: perf };
     if (signal.aborted) return { kind: "cancelled" };
 
     emit({ type: "step", step: "report" });
@@ -216,7 +217,7 @@ export async function runAnalysisPipeline(
       poses: sequence,
       result: outcome.result,
       report,
-      performance: { delegate, modelLoadMs, extract: stats, analyzeMs },
+      performance: perf,
     };
   } catch (error) {
     if (signal.aborted || isAbort(error)) return { kind: "cancelled" };
