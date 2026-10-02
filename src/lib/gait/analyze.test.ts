@@ -262,6 +262,47 @@ describe("可信度降級原因（§6.3）", () => {
   });
 });
 
+describe("M4 本機欄位：步數、整段前傾、查看數據", () => {
+  it("步數 = 直線段內左右腳的初始著地合計：接近真值、不超過真值、約為有效週期的 3 倍以上", () => {
+    const { sim, result, details } = run({ passes: 3 });
+    const steps = result.walking.stepsAnalyzed!;
+    const truthInPasses = sim.truth.events.filter(
+      (e) => e.type === "heel_strike" && details.passes.some((p) => e.timeSec >= p.startSec && e.timeSec <= p.endSec),
+    ).length;
+    expect(steps).toBeLessThanOrEqual(truthInPasses);
+    expect(steps).toBeGreaterThanOrEqual(truthInPasses * 0.8);
+    // 近側 HS 都算在內
+    expect(steps).toBeGreaterThanOrEqual(details.events.filter((e) => e.type === "heel_strike").length);
+  });
+
+  it("遠側看不清時，以近側 HS × 2 估計", () => {
+    const { result, details } = run({ passes: 3, farVisibility: 0.3 });
+    expect(result.walking.stepsAnalyzed).toBe(2 * details.events.filter((e) => e.type === "heel_strike").length);
+  });
+
+  it("整段持續前傾：全程前傾 10° → true；正常 → false；忽前忽後（中位數在界線附近）→ false", () => {
+    expect(finding(run({ gait: { trunkLeanDeg: 10 } }).result, "trunk")!.trunkLeanPersistent).toBe(true);
+    expect(finding(run({}).result, "trunk")!.trunkLeanPersistent).toBe(false);
+    const wobble = finding(run({ gait: { trunkLeanDeg: 8 }, trunkWobbleDeg: 6 }).result, "trunk")!;
+    expect(wobble.trunkLeanPersistent).toBe(false);
+  });
+
+  it("查看數據（D44）：每個 finding 有代表角度與常見範圍", () => {
+    const { result } = run({ gait: { thighExtDeg: 7 } });
+    expect(finding(result, "hip")!.userMetric).toMatchObject({ key: "PHE", normalMinDeg: 12 });
+    expect(finding(result, "hip")!.userMetric!.valueDeg).toBe(Math.round(finding(result, "hip")!.metrics.PHE!));
+    expect(finding(result, "swing")!.userMetric).toMatchObject({ key: "PKF_sw", normalMinDeg: 52 });
+    expect(finding(result, "stance")!.userMetric).toMatchObject({ key: "KIC", normalMaxDeg: 12, normalMaxInclusive: true });
+    expect(finding(result, "trunk")!.userMetric).toMatchObject({ key: "TRK", normalMaxDeg: 7, normalMaxInclusive: false });
+  });
+
+  it("本機欄位不會送到 API（請求仍通過嚴格驗證）", () => {
+    const { result } = run({ gait: { trunkLeanDeg: 12 } });
+    const json = expectValidRequest(result);
+    expect(json).not.toMatch(/steps|Persistent|persistent|userMetric|valueDeg/);
+  });
+});
+
 describe("走速、特殊族群、頭部觀察", () => {
   it("走得偏慢 → slow_speed，嚴重度不調整（D27），原因把「走得慢」排第一", () => {
     const { result } = run({ speedMps: 0.75, gait: { pkfDeg: 48 } });
@@ -302,6 +343,33 @@ describe("拒絕並請重拍（§7.1）", () => {
     { code: "not_side_view", options: { passes: 2, walkwayYawDeg: 60 } },
   ])("$code：$options", ({ code, options }) => {
     expect(reject(generateWalk(options))).toBe(code);
+  });
+
+  it.each([
+    { name: "背影（朝遠方走）、鼻子看不到", startDirection: 1 as const, noseVisibility: 0.2, noisePx: 8 },
+    { name: "正面（朝鏡頭走）", startDirection: -1 as const, noseVisibility: 0.95, noisePx: 8 },
+    { name: "背影、雜訊很大", startDirection: 1 as const, noseVisibility: 0.2, noisePx: 12 },
+  ])("M4 回歸：直拍 1080×1920、人很小的$name → not_side_view（不是 multi_person）", ({ startDirection, noseVisibility, noisePx }) => {
+    const sim = generateWalk({
+      width: 1080,
+      height: 1920,
+      walkwayYawDeg: 90,
+      startDirection,
+      cameraDistanceM: 8,
+      walkwayM: 4,
+      passes: 3,
+      noisePx,
+      noseVisibility,
+    });
+    expect(reject(sim)).toBe("not_side_view");
+  });
+
+  it("人小、雜訊大的側面影片不會被誤判成多人", () => {
+    expect(reject(generateWalk({ passes: 3, noisePx: 12, cameraDistanceM: 7 }))).toBe("ok");
+  });
+
+  it.each([15, 60])("換人（骨架跳到另一個人）在 %s fps 也偵測得到", (fps) => {
+    expect(reject(generateWalk({ passes: 3, fps, identitySwitches: 3, noisePx: 2 }))).toBe("multi_person");
   });
 
   it("no_gait_cycle：側面站著不動", () => {

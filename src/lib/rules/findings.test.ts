@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { CycleDetail, GaitMetrics, Side } from "@/lib/gait/types";
-import { buildFindings, type FindingsInput, type SideInput } from "./findings";
+import { buildFindings, isTrunkLeanPersistent, userMetricFor, type FindingsInput, type SideInput } from "./findings";
 
 let clock = 1;
 function cycle(side: Side, metrics: GaitMetrics): CycleDetail {
@@ -164,5 +164,44 @@ describe("D38 時間點與候選原因", () => {
   it("鏡頭歪斜可信度低時軀幹最多輕度（§5.3）", () => {
     const lean = { ...NORMAL, TRK: 14 };
     expect(find(buildFindings(input([lean, lean], [lean, lean], { cameraTiltLow: true })), "trunk_head_forward_lean")!.severity).toBe("mild");
+  });
+});
+
+describe("M4：整段持續前傾與查看數據", () => {
+  const trunkCycle = (passIndex: number, TRK: number): CycleDetail => {
+    const c = cycle("left", { ...NORMAL, TRK });
+    c.cycle.passIndex = passIndex;
+    return c;
+  };
+
+  it("≥ 80% 週期前傾且每一趟中位數都 ≥ 7° → 持續前傾", () => {
+    const cycles = [trunkCycle(0, 9), trunkCycle(0, 10), trunkCycle(1, 9.5), trunkCycle(1, 8), trunkCycle(2, 11)];
+    expect(isTrunkLeanPersistent("mild", cycles)).toBe(true);
+  });
+  it("只有某一趟前傾 → 不是持續前傾", () => {
+    // 82% 的週期前傾，但第 2 趟中位數只有 3°
+    const cycles = [...Array.from({ length: 8 }, () => trunkCycle(0, 12)), trunkCycle(1, 3), trunkCycle(1, 3), trunkCycle(1, 12)];
+    expect(isTrunkLeanPersistent("mild", cycles)).toBe(false);
+  });
+  it("前傾週期不到 80%、週期不足 2 個、或分級正常 → false", () => {
+    // 4/6 = 67% 前傾（每趟中位數都 ≥ 7）
+    expect(isTrunkLeanPersistent("mild", [trunkCycle(0, 9), trunkCycle(0, 9), trunkCycle(1, 5), trunkCycle(1, 5), trunkCycle(1, 9), trunkCycle(1, 9)])).toBe(false);
+    expect(isTrunkLeanPersistent("marked", [trunkCycle(0, 15)])).toBe(false);
+    expect(isTrunkLeanPersistent("normal", [trunkCycle(0, 9), trunkCycle(1, 9)])).toBe(false);
+  });
+  it("buildFindings 在軀幹 finding 設定 trunkLeanPersistent", () => {
+    const lean = { ...NORMAL, TRK: 14, PHE: 2, TE: 8 };
+    const trunk = buildFindings(input([lean, lean], [lean, lean])).findings.find((f) => f.subtype === "trunk_forward_lean")!;
+    expect(trunk.trunkLeanPersistent).toBe(true);
+  });
+
+  it("代表角度四捨五入，但不跨過常見範圍界線", () => {
+    expect(userMetricFor("TRK", 6.9).valueDeg).toBe(6); // 判正常，不可顯示 7
+    expect(userMetricFor("TRK", 7.2).valueDeg).toBe(7);
+    expect(userMetricFor("PHE", 11.6).valueDeg).toBe(11); // 判輕度，不可顯示 12
+    expect(userMetricFor("PHE", 12.4).valueDeg).toBe(12);
+    expect(userMetricFor("KIC", 12.3).valueDeg).toBe(13); // KIC > 12 判輕度
+    expect(userMetricFor("PKF_sw", 51.7).valueDeg).toBe(51);
+    expect(userMetricFor("PKF_sw", 58.2)).toEqual({ key: "PKF_sw", valueDeg: 58, normalMinDeg: 52 });
   });
 });
