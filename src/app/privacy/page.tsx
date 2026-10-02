@@ -28,7 +28,10 @@ export default function PrivacyPage() {
         <h2 className="text-lg font-bold">我們會送出什麼</h2>
         <ul className="list-disc space-y-1 pl-5">
           <li>只有計算出來的角度數字與判斷結果（不含任何影像），用來把結果寫成白話報告。</li>
-          <li>這些數字由人工智慧服務處理，處理完不會保存。</li>
+          <li>
+            這些數字會送到我們的伺服器，再交給美國 Anthropic 公司的人工智慧服務（Claude）寫成白話。我們的伺服器處理完不會保存；Anthropic 依其資料政策處理，可能會在一段期間內保留。
+          </li>
+          <li>和一般網站一樣，網站主機服務商會記錄連線的基本資訊（例如 IP 位址、瀏覽的網址與時間）；為了防止濫用，我們的伺服器也會在記憶體中暫記 IP 位址最多 1 分鐘。</li>
           <li>不需要註冊，也不會收集你的姓名、電話或 Email。</li>
         </ul>
       </section>
