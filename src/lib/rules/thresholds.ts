@@ -146,6 +146,16 @@ export const TRUNK = {
   markedMin: 12,
 } as const;
 
+/**
+ * 整段持續前傾（gait-rules.md §5.3、§8 `trunk_lean_persistent`，M4 新增）【推估】：
+ * 軀幹前傾為輕度以上，且 ≥ 80% 的有效週期本身 TRK ≥ 7°，且每一個有有效週期的直線段，
+ * 其 TRK 中位數也 ≥ 7°；有效週期至少 2 個。給回放時間軸畫「整段」長條，而不是零散的點。
+ */
+export const TRUNK_PERSISTENT = {
+  minCycleFraction: 0.8,
+  minCycles: 2,
+} as const;
+
 /** §3.3「接近臨界」：任一分級界線 ±1.5° 以內【推估】 */
 export const NEAR_THRESHOLD_BAND_DEG = 1.5;
 
@@ -265,12 +275,13 @@ export const REJECT = {
   /** multi_person：有 poseCount 時，≥ 2 人的影格佔偵測影格 ≥ 50%【推估】 */
   multiPersonFrameFraction: 0.5,
   /**
-   * multi_person：沒有 poseCount 時，比較候選換人點前、後各 5 格的中位數（換人需持續 ≥ 3 格才會被看到），
-   * 骨盆移動 > 0.5 L 或軀幹長度變化 > 35% 算一次跳動，次數 ≥ 4 判定【推估】。
-   * 用前後視窗中位數（而非逐格比較）避免人很小、雜訊大的影片被誤判（M4 修正背影誤判）。
+   * multi_person：沒有 poseCount 時，比較候選換人點前、後各約 0.17 秒（30 fps = 5 格，至少 3 格）的中位數，
+   * 扣掉正常走路的位移後骨盆偏離 > 0.5 L、或軀幹長度變化 > 35% 算一次跳動，次數 ≥ 4 判定【推估】。
+   * 用前後視窗中位數（而非逐格比較）避免人很小、雜訊大的影片被誤判（M4 修正背影誤判）；
+   * 換人需持續約半個視窗以上才會被看到。
    */
   identityJumpLeg: 0.5,
   identityScaleJump: 0.35,
   identityJumpCount: 4,
-  identityWindowFrames: 5,
+  identityWindowSec: 0.17,
 } as const;

@@ -192,6 +192,7 @@ export function AnalysisRunner() {
           result: outcome.result,
           report: outcome.report,
           performance: outcome.performance,
+          completedAt: new Date(),
         });
         router.replace("/report");
       } else if (outcome.kind === "rejected") {

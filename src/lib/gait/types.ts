@@ -253,6 +253,28 @@ export interface Finding {
    * 軀幹卡片要顯示 UX §4.2 的固定文案。
    */
   hipAttributedToTrunk?: boolean;
+  /**
+   * 只出現在軀幹前傾（trunk_forward_lean）：整段影片持續前傾（定義見 gait-rules.md §5.3）。
+   * true 時回放時間軸畫整段長條。只在本機使用，不送 API。
+   */
+  trunkLeanPersistent?: boolean;
+  /**
+   * D44（UX Q9）：報告「查看數據」收合區顯示的代表角度與常見範圍（整數度）。
+   * 只在本機使用，`toReportRequest` 不會送出這個欄位。
+   */
+  userMetric?: UserMetric;
+}
+
+/** 給使用者看的代表角度（D44）。常見範圍只有一側界線：例如髖伸展「≥ 12°」、軀幹前傾「< 7°」。 */
+export interface UserMetric {
+  key: "PHE" | "PKF_sw" | "KIC" | "TRK";
+  /** 代表數值，四捨五入到整數度。 */
+  valueDeg: number;
+  /** 常見範圍下限（含）：PHE、PKF_sw。 */
+  normalMinDeg?: number;
+  /** 常見範圍上限：KIC（含）、TRK（不含，見 normalMaxInclusive）。 */
+  normalMaxDeg?: number;
+  normalMaxInclusive?: boolean;
 }
 
 /** 觀察項目（目前只有頭部位置，D25）：不分級、不給練習。 */

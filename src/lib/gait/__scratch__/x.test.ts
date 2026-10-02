@@ -1,16 +1,21 @@
 import { it } from "vitest";
 import { analyzeGait } from "../analyze";
-import { buildTrack } from "../preprocess";
-import { rejectMeasurements } from "../quality";
-import { generateWalk } from "../testing/synthetic";
+import { generateWalk, type SyntheticOptions } from "../testing/synthetic";
+const f = (name: string, o: SyntheticOptions) => {
+  const sim = generateWalk({ noisePx: 2, ...o });
+  const out = analyzeGait(sim.frames, sim.meta);
+  if (out.status !== "ok") return console.log("R", name, out.code);
+  const d = out.details!;
+  const truthSteps = sim.truth.events.filter((e) => e.type === "heel_strike" && d.passes.some((p) => e.timeSec >= p.startSec && e.timeSec <= p.endSec)).length;
+  const trunk = out.result.findings.find((x) => x.subtype === "trunk_forward_lean")!;
+  console.log("R", name, "steps", out.result.walking.stepsAnalyzed, "truth-in-pass", truthSteps, "cycles", out.result.walking.validCyclesTotal, "trunk", trunk.severity, trunk.metrics.TRK, "persist", trunk.trunkLeanPersistent, JSON.stringify(trunk.userMetric));
+};
 it("x", () => {
-  for (const noisePx of [4, 8, 12]) for (const dist of [6, 8]) {
-    const sim = generateWalk({ passes: 3, noisePx, cameraDistanceM: dist });
-    const o = analyzeGait(sim.frames, sim.meta);
-    const r = rejectMeasurements(buildTrack(sim.frames, sim.meta), sim.meta.durationSec);
-    console.log("SIDE", noisePx, dist, o.status === "rejected" ? o.code : "ok " + o.result.confidence.overall, "jumps", r.identityJumps);
-  }
-  const sim = generateWalk({ width: 1080, height: 1920, walkwayYawDeg: 90, startDirection: 1, cameraDistanceM: 8, walkwayM: 4, passes: 3, noisePx: 8, noseVisibility: 0.2, jointVisibility: { near: { ear: 0.4 }, far: { ear: 0.4 } } });
-  const o = analyzeGait(sim.frames, sim.meta);
-  console.log("BACK noface", o.status === "rejected" ? o.code : "ok");
+  f("normal 3 passes", { passes: 3 });
+  f("normal 4 passes", { passes: 4 });
+  f("far occluded", { passes: 3, farVisibility: 0.3 });
+  f("trunk 10", { passes: 3, gait: { trunkLeanDeg: 10 } });
+  f("trunk 15", { passes: 3, gait: { trunkLeanDeg: 15 } });
+  f("trunk 8 wobble 5", { passes: 3, gait: { trunkLeanDeg: 8 }, trunkWobbleDeg: 5 });
+  f("trunk 7.5", { passes: 3, gait: { trunkLeanDeg: 7.5 } });
 });

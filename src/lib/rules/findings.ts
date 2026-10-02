@@ -18,7 +18,9 @@ import type {
   Severity,
   Side,
   SideGrade,
+  UserMetric,
 } from "@/lib/gait/types";
+import { median } from "@/lib/gait/math";
 import {
   BOUNDARIES,
   applyCycleGuard,
@@ -33,7 +35,7 @@ import {
   severityRank,
   type SideMetricGrade,
 } from "./grading";
-import { HIP_EXTENSION, KNEE_STANCE, KNEE_SWING, MAX_TIMESTAMPS, TRUNK } from "./thresholds";
+import { HIP_EXTENSION, KNEE_STANCE, KNEE_SWING, MAX_TIMESTAMPS, TRUNK, TRUNK_PERSISTENT } from "./thresholds";
 
 export interface SideInput {
   side: Side;
@@ -96,6 +98,21 @@ function timestampsFor(
   return [...new Set(chosen)].sort((a, b) => a - b).slice(0, MAX_TIMESTAMPS);
 }
 
+/** D44：給使用者看的代表角度與常見範圍（整數度；只在本機使用）。 */
+export function userMetricFor(key: UserMetric["key"], value: number): UserMetric {
+  const valueDeg = Math.round(value);
+  switch (key) {
+    case "PHE":
+      return { key, valueDeg, normalMinDeg: HIP_EXTENSION.normalMin };
+    case "PKF_sw":
+      return { key, valueDeg, normalMinDeg: KNEE_SWING.normalMin };
+    case "KIC":
+      return { key, valueDeg, normalMaxDeg: KNEE_STANCE.normalMax, normalMaxInclusive: true };
+    case "TRK":
+      return { key, valueDeg, normalMaxDeg: TRUNK.mildMin, normalMaxInclusive: false };
+  }
+}
+
 function finding(
   base: Pick<Finding, "problem" | "subtype">,
   severity: Severity,
@@ -107,7 +124,28 @@ function finding(
 ): Finding {
   const out: Finding = { ...base, severity, metrics, metricConfidence, nearThreshold, candidateCauses };
   if (severity !== "normal" && timestampsSec.length > 0) out.timestampsSec = timestampsSec;
+  const key = (["PHE", "PKF_sw", "KIC", "TRK"] as const).find((name) => metrics[name] !== undefined);
+  if (key) out.userMetric = userMetricFor(key, metrics[key] as number);
   return out;
+}
+
+/**
+ * 整段持續前傾（§5.3，M4）：軀幹輕度以上、有效週期 ≥ 2、≥ 80% 的週期本身 TRK ≥ 7°，
+ * 且每個有有效週期的直線段 TRK 中位數 ≥ 7°。
+ */
+export function isTrunkLeanPersistent(severity: Severity, cycles: readonly CycleDetail[]): boolean {
+  if (severity === "normal") return false;
+  const withTrk = cycles.filter((cycle) => cycle.metrics.TRK !== undefined);
+  if (withTrk.length < TRUNK_PERSISTENT.minCycles) return false;
+  const leaning = withTrk.filter((cycle) => (cycle.metrics.TRK as number) >= TRUNK.mildMin).length;
+  if (leaning / withTrk.length < TRUNK_PERSISTENT.minCycleFraction) return false;
+  const byPass = new Map<number, number[]>();
+  for (const cycle of withTrk) {
+    const list = byPass.get(cycle.cycle.passIndex) ?? [];
+    list.push(cycle.metrics.TRK as number);
+    byPass.set(cycle.cycle.passIndex, list);
+  }
+  return [...byPass.values()].every((values) => median(values) >= TRUNK.mildMin);
 }
 
 export function buildFindings(input: FindingsInput): FindingsOutput {
@@ -252,6 +290,7 @@ export function buildFindings(input: FindingsInput): FindingsOutput {
       timestampsFor(input.trunk.cycles, "TRK", (value) => value >= TRUNK.mildMin),
     );
     if (hipSuppressed) trunkFinding.hipAttributedToTrunk = true;
+    trunkFinding.trunkLeanPersistent = isTrunkLeanPersistent(severity, input.trunk.cycles);
     findings.push(trunkFinding);
   }
 

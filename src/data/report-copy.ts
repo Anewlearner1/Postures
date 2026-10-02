@@ -137,3 +137,6 @@ export const ALL_NORMAL_COPY = {
     "如果之後走路時開始覺得哪裡不舒服，或姿勢有明顯改變，可以再拍一次影片比較看看，或諮詢物理治療師。",
   ],
 } as const;
+
+/** 觀察：頭部位置的區塊標題（UX §4.3.4）。 */
+export const HEAD_OBSERVATION_TITLE = "觀察：頭部位置";

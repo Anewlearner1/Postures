@@ -35,6 +35,8 @@ export interface CompletedAnalysis {
   result: AnalysisResult;
   report: FetchedReport;
   performance: PipelinePerformance;
+  /** 分析完成的時間（列印版的「產生日期」）。 */
+  completedAt: Date;
 }
 
 interface AnalysisSessionValue {

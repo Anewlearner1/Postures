@@ -6,21 +6,42 @@
  *   → 觀察：頭部位置 → 骨架回放 → 什麼時候該找專業人員 → 下一步 → 離開提醒。
  *   手機是單欄；電腦是「左欄骨架回放固定、右欄卡片捲動」。
  *
+ *   UX §2.5 的手機／電腦差異：
+ *   - 卡片：手機只展開第一張；電腦全部展開，且「這代表什麼」預設展開
+ *   - 「什麼時候該找專業人員？」：電腦預設展開；手機在有「明顯」或適用情況提醒時展開
+ *   - 下一步按鈕：手機捲到後半出現底部固定列；電腦在右欄底部
+ *   適用情況提醒（population_caveat）時，就醫提醒整塊移到問題卡片前（UX §4.2）。
+ *   全部在常見範圍內時，卡片位置改放鼓勵文案與 3 個項目小卡（D37、UX §4.4）。
+ *   列印／儲存為 PDF 時只印 PrintReport（D43）。
+ *
  *   同一個版面給兩種報告使用：
  *   - 使用者自己的報告（/report）：replay 傳入真正的骨架回放播放器
  *   - 示範報告（/report/sample）：沒有影片，回放區顯示佔位，頂端顯示「示範報告」說明（notice）
  */
 
+"use client";
+
 import type { ReactNode } from "react";
-import { ProblemCard } from "@/components/report/ProblemCard";
+import { DownloadReportButton } from "@/components/report/DownloadReportButton";
+import { MobileActionBar } from "@/components/report/MobileActionBar";
+import { PrintReport, type Keyframe } from "@/components/report/PrintReport";
+import { ProblemCard, type MetricRow } from "@/components/report/ProblemCard";
 import { ReplayPlaceholder } from "@/components/report/ReplayPlaceholder";
 import { SeekCareSection } from "@/components/report/SeekCare";
-import { ButtonLink, buttonClass } from "@/components/ui/ButtonLink";
+import { ButtonLink } from "@/components/ui/ButtonLink";
 import { DisclaimerStrip } from "@/components/ui/DisclaimerStrip";
 import { AlertIcon, CheckIcon, InfoIcon } from "@/components/ui/icons";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { SeverityMeter } from "@/components/ui/SeverityMeter";
-import { CONFIDENCE_INFO, CONFIDENCE_LABEL, NEXT_STEPS_COPY, POPULATION_CAVEAT_COPY } from "@/data/report-copy";
+import { DESKTOP_QUERY, useMediaQuery } from "@/components/ui/useMediaQuery";
+import {
+  ALL_NORMAL_COPY,
+  CONFIDENCE_INFO,
+  CONFIDENCE_LABEL,
+  HEAD_OBSERVATION_TITLE,
+  NEXT_STEPS_COPY,
+  POPULATION_CAVEAT_COPY,
+} from "@/data/report-copy";
 import { STANDARD_LABEL } from "@/data/site";
 import type { ReportView } from "@/lib/report/types";
 
@@ -29,8 +50,17 @@ export function ReportContent({
   notice,
   replay,
   onViewInVideo,
+  generatedAt,
+  keyframe,
+  metricsByCard,
 }: {
   report: ReportView;
+  /** 報告產生時間（列印版顯示）。 */
+  generatedAt: Date;
+  /** 列印版的關鍵畫面（本機產生）；沒有時不放圖。 */
+  keyframe?: Keyframe | null;
+  /** 各卡片「查看數據」的內容（D44）；沒有時不顯示。 */
+  metricsByCard?: Record<string, MetricRow[]>;
   /** 報告頂端的說明（例如示範報告、AI 白話說明暫時無法產生）。 */
   notice?: { text: string; tone: "demo" | "info" };
   /** 骨架回放區；沒有提供時顯示佔位版。 */
@@ -40,9 +70,19 @@ export function ReportContent({
 }) {
   const isLowConfidence = report.confidence === "low";
   const hasMarked = report.problems.some((problem) => problem.severity === "marked");
+  const isDesktop = useMediaQuery(DESKTOP_QUERY);
+  const caveat = Boolean(report.populationCaveat);
+  const allNormal = report.problems.length === 0;
+  const seekCare = (
+    <div className="lg:col-start-2">
+      <SeekCareSection key={String(isDesktop)} defaultOpen={isDesktop || hasMarked || caveat} />
+    </div>
+  );
 
   return (
-    <PageContainer width="wide" className="space-y-6">
+    <>
+    <PrintReport report={report} generatedAt={generatedAt} keyframe={keyframe} metricsByCard={metricsByCard} />
+    <PageContainer width="wide" className="space-y-6 pb-28 print:hidden lg:pb-12">
       {notice?.tone === "demo" && (
         <p className="rounded-lg border-2 border-dashed border-sev-mild px-3 py-2 text-sm font-semibold text-sev-mild">
           {notice.text}
@@ -129,20 +169,50 @@ export function ReportContent({
 
       {/* 手機：單欄由上到下；電腦：左欄骨架回放固定、右欄其他區塊 */}
       <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-start">
+        {/* 適用情況提醒時：就醫提醒移到問題卡片前，預設展開（UX §4.2） */}
+        {caveat && seekCare}
+
         {/* 4. 問題卡片（依嚴重度排序：明顯 → 輕度） */}
-        <section className="space-y-4 lg:col-start-2" aria-label="問題卡片">
-          {report.problems.map((problem) => (
-            <ProblemCard
-              key={problem.id}
-              problem={problem}
-              lowConfidence={isLowConfidence}
-              onViewInVideo={onViewInVideo ? () => onViewInVideo(problem.id) : undefined}
-            />
-          ))}
-        </section>
+        {!allNormal && (
+          <section className="space-y-4 lg:col-start-2" aria-label="問題卡片">
+            {report.problems.map((problem, index) => (
+              <ProblemCard
+                key={`${problem.id}-${isDesktop}`}
+                problem={problem}
+                lowConfidence={isLowConfidence}
+                expanded={isDesktop || index === 0}
+                meaningOpen={isDesktop}
+                metrics={metricsByCard?.[problem.id]}
+                onViewInVideo={onViewInVideo ? () => onViewInVideo(problem.id) : undefined}
+              />
+            ))}
+          </section>
+        )}
+
+        {/* 全部在常見範圍內：鼓勵文案＋項目小卡（D37：不給維持型練習，UX §4.4） */}
+        {allNormal && (
+          <section className="space-y-4 lg:col-start-2" aria-label="結果">
+            <div className="rounded-2xl border-2 border-line p-5">
+              <h2 className="text-xl font-bold">{ALL_NORMAL_COPY.title}</h2>
+              {ALL_NORMAL_COPY.paragraphs.map((paragraph) => (
+                <p key={paragraph} className="mt-2">
+                  {paragraph}
+                </p>
+              ))}
+            </div>
+            <ul className="space-y-2" aria-label="看起來不錯的項目">
+              {report.goodItems.map((item) => (
+                <li key={item} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line px-4 py-3">
+                  <span className="font-semibold">{item}</span>
+                  <SeverityMeter severity="normal" />
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {/* 5. 看起來不錯 */}
-        {report.goodItems.length > 0 && (
+        {!allNormal && report.goodItems.length > 0 && (
           <details className="rounded-2xl border border-line px-4 lg:col-start-2">
             <summary className="flex min-h-12 items-center gap-2 py-2 font-bold">
               <CheckIcon className="h-5 w-5 text-sev-normal" />
@@ -162,7 +232,7 @@ export function ReportContent({
         {/* 6. 觀察：頭部位置（不分級、不給練習，D25） */}
         {report.headObservation && (
           <section className="rounded-2xl bg-surface p-4 lg:col-start-2">
-            <h2 className="font-bold">觀察：頭部位置</h2>
+            <h2 className="font-bold">{HEAD_OBSERVATION_TITLE}</h2>
             <div className="mt-1 space-y-1 text-sm text-muted">
               {report.headObservation.map((paragraph) => (
                 <p key={paragraph}>{paragraph}</p>
@@ -176,17 +246,13 @@ export function ReportContent({
           {replay ?? <ReplayPlaceholder markers={report.timelineMarkers} durationLabel={report.durationLabel} />}
         </div>
 
-        {/* 8. 什麼時候該找專業人員 */}
-        <div className="lg:col-start-2">
-          <SeekCareSection defaultOpen={hasMarked || Boolean(report.populationCaveat)} />
-        </div>
+        {/* 8. 什麼時候該找專業人員（適用情況提醒時已移到卡片前） */}
+        {!caveat && seekCare}
 
         {/* 9. 下一步（資料捐贈邀請在 M6 才加入） */}
         <section className="space-y-3 lg:col-start-2">
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <button type="button" className={buttonClass("primary")} disabled title="即將推出">
-              {NEXT_STEPS_COPY.download}（即將推出）
-            </button>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+            <DownloadReportButton />
             <ButtonLink href="/upload" variant="secondary">
               {NEXT_STEPS_COPY.again}
             </ButtonLink>
@@ -199,5 +265,7 @@ export function ReportContent({
         </section>
       </div>
     </PageContainer>
+    <MobileActionBar />
+    </>
   );
 }

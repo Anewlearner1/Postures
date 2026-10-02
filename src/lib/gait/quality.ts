@@ -54,9 +54,10 @@ export function rejectMeasurements(track: Track, durationSec: number): RejectMea
   }
 
   // 骨架整體跳動（疑似換成另一個人，§7.1 multi_person）：
-  // 比較候選換人點「前 w 格」與「後 w 格」（w 見 REJECT.identityWindowFrames）的骨盆位置中位數與軀幹長度中位數，
-  // 骨盆移動 > 0.5 L 或軀幹長度變化 > 35% 才算一次跳動。用中位數而不是逐格比較，
-  // 是為了不讓「人很小＋關鍵點雜訊大」（例如遠處的背影）被誤判成換人。
+  // 以候選換人點「前 w 格」與「後 w 格」（約 0.17 秒）的骨盆位置中位數比較，並扣掉正常走路的位移
+  // （用整個視窗逐格速度的中位數預測；換人那一格的大位移只是一個離群值，不影響中位數）。
+  // 骨盆偏離預測 > 0.5 L、或軀幹長度中位數變化 > 35% 才算一次跳動。
+  // 用中位數而不是逐格比較，是為了不讓「人很小＋關鍵點雜訊大」（例如遠處的背影）被誤判成換人。
   const L0 = roughLegLength(track.side, track.n, true);
   const maxGap = Math.max(1, Math.round(PREPROCESS.maxGapSec * track.fps)) + 1;
   const s = track.side;
@@ -70,7 +71,7 @@ export function rejectMeasurements(track: Track, durationSec: number): RejectMea
     );
     if ([x, y, trunk].every(Number.isFinite)) samples.push({ k, x, y, trunk });
   }
-  const w = REJECT.identityWindowFrames;
+  const w = Math.max(3, Math.round(REJECT.identityWindowSec * track.fps));
   let jumps = 0;
   if (L0 > 0) {
     let i = w;
@@ -83,8 +84,11 @@ export function rejectMeasurements(track: Track, durationSec: number): RejectMea
       }
       const before = window.slice(0, w);
       const after = window.slice(w);
-      const med = (list: typeof before, key: "x" | "y" | "trunk") => median(list.map((item) => item[key]));
-      const move = Math.hypot(med(after, "x") - med(before, "x"), med(after, "y") - med(before, "y"));
+      const med = (list: typeof window, key: "x" | "y" | "trunk" | "k") => median(list.map((item) => item[key]));
+      const vx = median(window.slice(1).map((item, j) => (item.x - window[j].x) / (item.k - window[j].k)));
+      const vy = median(window.slice(1).map((item, j) => (item.y - window[j].y) / (item.k - window[j].k)));
+      const dk = med(after, "k") - med(before, "k");
+      const move = Math.hypot(med(after, "x") - med(before, "x") - vx * dk, med(after, "y") - med(before, "y") - vy * dk);
       const trunkBefore = med(before, "trunk");
       const scaleJump = trunkBefore > 0 && Math.abs(med(after, "trunk") / trunkBefore - 1) > REJECT.identityScaleJump;
       if (move > REJECT.identityJumpLeg * L0 || scaleJump) {

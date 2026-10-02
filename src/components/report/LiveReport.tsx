@@ -24,6 +24,7 @@ type State = { status: "loading" } | { status: "ready"; data: FetchedReport } | 
 
 export function LiveReport() {
   const [state, setState] = useState<State>({ status: "loading" });
+  const [generatedAt] = useState(() => new Date());
 
   useEffect(() => {
     const controller = new AbortController();
@@ -58,6 +59,7 @@ export function LiveReport() {
   return (
     <ReportContent
       report={state.data.report}
+      generatedAt={generatedAt}
       notice={{ tone: "demo", text: `${SAMPLE_REPORT_BANNER}（${SOURCE_LABEL[state.data.source]}）` }}
     />
   );
