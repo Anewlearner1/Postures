@@ -183,4 +183,42 @@ describe("generateReport 降級路徑", () => {
     const result = await generateReport(request);
     expect(result).toEqual({ source: "template", report: buildTemplateReport(request) });
   });
+
+  describe("D39：髖伸展歸因於軀幹前傾", () => {
+    function attributedRequest() {
+      const request = allProblemsRequest("marked");
+      request.findings = request.findings
+        .filter((finding) => finding.problem === "trunk_head_forward_lean")
+        .map((finding) => ({ ...finding, hip_attributed_to_trunk: true }));
+      return request;
+    }
+
+    it("交給 Claude 的資料帶白話情境說明，不帶旗標代碼或額外數值", async () => {
+      vi.stubEnv("ANTHROPIC_API_KEY", "test-key");
+      const request = attributedRequest();
+      parseMock.mockResolvedValue(aiResponse(goodAiOutput(request)));
+      await generateReport(request);
+      const sent = JSON.parse(parseMock.mock.calls[0][0].messages[0].content as string);
+      expect(sent.cards[0].card_id).toBe("trunk_forward_lean");
+      expect(sent.cards[0].context_note).toContain("身體往前傾連帶造成");
+      expect(JSON.stringify(sent)).not.toMatch(/hip_attributed_to_trunk|PHE|"TE"/);
+      expect(parseMock.mock.calls[0][0].system).toContain("context_note");
+    });
+
+    it("AI 另外說後腳推蹬正常／很好時，該段換回模板文字", async () => {
+      vi.stubEnv("ANTHROPIC_API_KEY", "test-key");
+      const request = attributedRequest();
+      const template = buildTemplateReport(request);
+      const output = goodAiOutput(request);
+      output.summary = "這次影片中，你的身體有點往前傾，不過後腳推蹬在常見範圍內，表現很好。";
+      output.cards[0].what_we_saw = "走路時上半身比較往前，但髖伸展正常。";
+      output.cards[0].exercises[0].why = "幫助你維持很好的推蹬。";
+      parseMock.mockResolvedValue(aiResponse(output));
+      const result = await generateReport(request);
+      expect(result.report.summary).toBe(template.summary);
+      expect(result.report.problems[0].whatWeSaw).toBe(template.problems[0].whatWeSaw);
+      expect(result.report.problems[0].exercises[0].why).toBeUndefined();
+      expect(result.report.problems[0].meaning).toEqual(template.problems[0].meaning);
+    });
+  });
 });

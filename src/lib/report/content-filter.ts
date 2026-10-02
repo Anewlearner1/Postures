@@ -9,6 +9,7 @@
  *   4. 數字（SPEC §3「數字一律由程式算出」）：文字中的數字必須是程式提供的數值
  *      （角度四捨五入、時間點、次數、問題數），AI 不能自己產生數字或改劑量。
  *   5. 長度與格式：不可空白、不可太長、不可有網址或 HTML／Markdown 符號。
+ *   6. 情境限制（呼叫端指定）：例如髖伸展已歸因於軀幹前傾（D39）時，不可另外評論後腳推蹬。
  */
 
 /** UX 文件 §8.5 禁用詞清單（「就醫提醒」為固定文案，不經過這個檢查）。 */
@@ -44,7 +45,15 @@ const HEAD_PATTERN = /頭部|頭往前|頭前|頭向前|低頭|頸|脖子|烏龜
 /** 格式：網址、HTML 標籤、Markdown 符號。 */
 const FORMAT_PATTERN = /https?:|www\.|[<>*#`\[\]_]/i;
 
-export type TextProblem = "empty" | "too_long" | "banned_word" | "side" | "head" | "number" | "format";
+export type TextProblem =
+  | "empty"
+  | "too_long"
+  | "banned_word"
+  | "side"
+  | "head"
+  | "number"
+  | "format"
+  | "contradiction";
 
 export interface TextRules {
   maxLength: number;
@@ -52,6 +61,8 @@ export interface TextRules {
   allowedNumbers?: ReadonlySet<string>;
   /** 允許出現的時間點字串（例如 "0:03"）。 */
   allowedTimestamps?: readonly string[];
+  /** 這份報告情境下不可出現的說法（例如 D39 歸因時，不可另外評論後腳推蹬）。 */
+  forbidden?: RegExp;
 }
 
 /** 全形數字與小數點轉成半形，方便比對。 */
@@ -70,6 +81,7 @@ export function findTextProblem(text: string, rules: TextRules): TextProblem | n
   if (SIDE_PATTERN.test(trimmed)) return "side";
   if (HEAD_PATTERN.test(trimmed)) return "head";
   if (FORMAT_PATTERN.test(trimmed)) return "format";
+  if (rules.forbidden?.test(trimmed)) return "contradiction";
 
   let rest = normalizeDigits(trimmed);
   for (const timestamp of rules.allowedTimestamps ?? []) {

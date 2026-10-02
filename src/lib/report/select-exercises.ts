@@ -7,6 +7,8 @@
  *   1. 只為「輕度」「明顯」挑動作；只用第一版啟用（v1_active）的原因、對應列與動作。
  *   2. 輕度 2 個（1 步態提示＋1 伸展或肌力）；明顯 3 個（1 步態提示＋1 伸展＋1 肌力）；
  *      候選原因裡沒有該類型時，從同問題的其他原因補。
+ *      D40：補位只能用同一子型態的原因（gait-rules.md §4.4「對應型態」，見 exercises.ts 的 SUBTYPE_CAUSES），
+ *      例如「膝蓋彎得較多」不可補擺盪期的 `swing-knee-lift-walking-cue`；沒有對題的動作時寧可少給。
  *   3. 整份報告最多 6 個不同動作；同一動作出現在多張卡片時只算一次，後面的卡片改成「見某某卡片」。
  *   4. 可信度「較低」（display = low）時，每張卡片最多 1 個，優先步態提示、其次伸展。
  *   6. 只提醒就醫的原因（pain_guarding 等）不加動作；population_caveat 時整份最多 3 個，並用退階版。
@@ -21,6 +23,7 @@ import { cardIdOf } from "./card-id";
 import type { ProblemCode, Severity } from "@/lib/gait/types";
 import {
   activeMappingsFor,
+  causeFitsSubtype,
   getExercise,
   isActiveCause,
   isActiveExercise,
@@ -89,8 +92,9 @@ function slotsFor(severity: Severity, lowConfidence: boolean): Slot[] {
 }
 
 /** 依原因順序展開成不重複的動作 id 清單（只留第一版啟用的動作）。 */
-function poolFromCauses(problem: ProblemCode, causes: readonly string[] | null): string[] {
-  const rows = activeMappingsFor(problem);
+function poolFromCauses(problem: ProblemCode, subtype: string | undefined, causes: readonly string[] | null): string[] {
+  // D40：只用與這個子型態對題的原因（例如「膝蓋彎得較多」不用擺盪期的原因與動作）
+  const rows = activeMappingsFor(problem).filter((row) => causeFitsSubtype(row.cause, subtype));
   const ordered = causes === null ? rows : causes.flatMap((cause) => rows.filter((row) => row.cause === cause));
   const ids: string[] = [];
   for (const row of ordered) {
@@ -116,13 +120,17 @@ function pickForSlot(slot: Slot, pool: string[], taken: Set<string>): string | u
 
 /** 單張卡片「理想上」要放的動作（還沒套用整份報告的數量上限）。 */
 function planCard(finding: ReportRequestFinding, lowConfidence: boolean): string[] {
-  const usableCauses = finding.candidate_causes.filter((cause) => !isReferOnlyCause(cause) && isActiveCause(cause));
-  const onlyReferCauses = finding.candidate_causes.length > 0 && usableCauses.length === 0;
+  const usableCauses = finding.candidate_causes.filter(
+    (cause) => !isReferOnlyCause(cause) && isActiveCause(cause) && causeFitsSubtype(cause, finding.subtype),
+  );
+  const onlyReferCauses =
+    finding.candidate_causes.length > 0 && finding.candidate_causes.every((cause) => isReferOnlyCause(cause));
   if (onlyReferCauses) return []; // §3 規則 6：只有就醫提醒的原因，不給動作
 
-  // 候選原因為空時，直接用該問題的全部對應列
-  const primary = poolFromCauses(finding.problem, usableCauses.length > 0 ? usableCauses : null);
-  const fallback = poolFromCauses(finding.problem, null); // §3 規則 2：從同問題其他原因補
+  // 沒有可用（對題）的候選原因時，直接用該問題（同子型態）的全部對應列
+  const primary = poolFromCauses(finding.problem, finding.subtype, usableCauses.length > 0 ? usableCauses : null);
+  // §3 規則 2：從同問題其他原因補；D40：只補同子型態的原因，沒有對題的動作就少給
+  const fallback = poolFromCauses(finding.problem, finding.subtype, null);
 
   const chosen: string[] = [];
   const taken = new Set<string>();

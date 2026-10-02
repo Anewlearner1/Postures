@@ -146,3 +146,19 @@ export function knownCausesFor(problem: ProblemCode): Set<string> {
   }
   return causes;
 }
+
+/**
+ * 子型態 → 對題的原因代碼（D40）。動作庫的對應表只分到「問題」，膝屈曲異常的兩種型態
+ * 要再依 gait-rules.md §4.4「對應型態」欄位區分；沒有子型態的問題（髖、軀幹）不受限制。
+ * `knee_pain_swelling` 適用任何型態，但它是只提醒就醫的原因，不會產生動作。
+ */
+export const SUBTYPE_CAUSES: Partial<Record<string, readonly string[]>> = {
+  knee_swing_flexion_low: ["quad_rectus_tightness", "weak_push_off", "slow_short_stride", "knee_pain_swelling"],
+  knee_stance_flexion_high: ["hamstring_tightness", "quad_weakness", "knee_pain_swelling"],
+};
+
+/** 這個原因對這個子型態是否「對題」（沒有子型態限制時一律為 true）。 */
+export function causeFitsSubtype(cause: string, subtype: string | undefined): boolean {
+  const allowed = subtype ? SUBTYPE_CAUSES[subtype] : undefined;
+  return allowed ? allowed.includes(cause) : true;
+}

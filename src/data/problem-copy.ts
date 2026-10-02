@@ -116,6 +116,13 @@ export const CARD_ORDER: CardId[] = [
 /** 「接近分界」時加在「我們看到什麼」最後的一句（UX §4.3.0）。 */
 export const NEAR_THRESHOLD_SENTENCE = "這次的數值剛好在分界附近，結果可能因為拍攝條件而有一點差異，參考就好。";
 
+/**
+ * D39（D31 歸因）：髖伸展偏小已歸因於軀幹前傾時，加在「身體往前傾」卡片「這代表什麼」最後的一句（UX §4.2）。
+ * 只在分析結果帶 `hip_attributed_to_trunk: true` 時顯示；這時報告不會有「後腳推蹬不足」卡片。
+ */
+export const HIP_ATTRIBUTED_TO_TRUNK_SENTENCE =
+  "身體往前傾時，後腳往後推的幅度通常也會跟著變小，所以這次我們先把重點放在身體姿勢上。";
+
 /** 「看起來不錯」項目接近分界時加的註記（UX §4.3.0）。 */
 export const NEAR_THRESHOLD_GOOD_SUFFIX = "（接近分界，可以多留意）";
 

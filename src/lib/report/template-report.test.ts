@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { HIP_ATTRIBUTED_TO_TRUNK_SENTENCE } from "@/data/problem-copy";
 import { BANNED_WORDS } from "./content-filter";
 import { getExercise } from "./exercises";
 import { buildTemplateReport, formatTimestamp } from "./template-report";
@@ -39,7 +40,12 @@ describe("模板報告（降級方案）", () => {
   });
 
   it("重複的練習在後面的卡片改成「見某某卡片」", () => {
-    const report = buildTemplateReport(allProblemsRequest("marked"));
+    const request = allProblemsRequest("marked");
+    // 軀幹與髖都只給「髖屈肌緊繃」→ 兩張卡片都會選到單膝跪姿髖屈肌伸展
+    request.findings = request.findings
+      .filter((finding) => finding.problem !== "knee_flexion_abnormal")
+      .map((finding) => ({ ...finding, candidate_causes: ["hip_flexor_tightness"] }));
+    const report = buildTemplateReport(request);
     const all = report.problems.flatMap((card) => card.exercises);
     const references = all.filter((exercise) => exercise.steps.length === 0);
     expect(references.length).toBeGreaterThan(0);
@@ -89,5 +95,26 @@ describe("模板報告（降級方案）", () => {
   it("formatTimestamp", () => {
     expect(formatTimestamp(3.1)).toBe("0:03");
     expect(formatTimestamp(75.9)).toBe("1:15");
+  });
+
+  it("D39：髖伸展歸因於軀幹前傾時，軀幹卡片「這代表什麼」最後加固定句，且不出現後腳推蹬", () => {
+    const request = allProblemsRequest("marked");
+    request.findings = request.findings
+      .filter((finding) => finding.problem !== "hip_extension_deficit")
+      .map((finding) =>
+        finding.problem === "trunk_head_forward_lean" ? { ...finding, hip_attributed_to_trunk: true } : finding,
+      );
+    const report = buildTemplateReport(request);
+    const trunk = report.problems.find((card) => card.id === "trunk_forward_lean")!;
+    expect(trunk.meaning.at(-1)).toBe(HIP_ATTRIBUTED_TO_TRUNK_SENTENCE);
+    expect(report.problems.some((card) => card.id === "hip_extension_deficit")).toBe(false);
+    expect(report.goodItems.join("")).not.toContain("後腳推蹬");
+    expect(report.summary).not.toContain("後腳推蹬");
+  });
+
+  it("沒有 D39 旗標時，軀幹卡片不加歸因句", () => {
+    const report = buildTemplateReport(allProblemsRequest("marked"));
+    const trunk = report.problems.find((card) => card.id === "trunk_forward_lean")!;
+    expect(trunk.meaning).not.toContain(HIP_ATTRIBUTED_TO_TRUNK_SENTENCE);
   });
 });

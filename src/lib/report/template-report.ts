@@ -13,6 +13,7 @@ import {
   CONFIDENCE_TIP_TEMPLATE,
 } from "@/data/confidence-copy";
 import {
+  HIP_ATTRIBUTED_TO_TRUNK_SENTENCE,
   NEAR_THRESHOLD_GOOD_SUFFIX,
   NEAR_THRESHOLD_SENTENCE,
   PROBLEM_COPY,
@@ -183,7 +184,10 @@ export function buildTemplateReport(request: ReportRequest, selection = selectEx
       subtitle: copy.subtitle,
       severity: card.finding.severity,
       whatWeSaw: templateWhatWeSaw(card),
-      meaning: [...copy.meaning],
+      // D39：髖伸展偏小已歸因於軀幹前傾時，軀幹卡片加 UX §4.2 的固定句
+      meaning: card.finding.hip_attributed_to_trunk
+        ? [...copy.meaning, HIP_ATTRIBUTED_TO_TRUNK_SENTENCE]
+        : [...copy.meaning],
       causes: causes.length > 0 ? causes : [...copy.defaultCauses],
       exercises,
     };

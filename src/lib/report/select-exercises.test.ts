@@ -85,9 +85,8 @@ describe("動作挑選規則（exercise-library.md §3）", () => {
     const selection = selectExercises(request);
     expect(selection.uniqueExerciseIds.length).toBeLessThanOrEqual(MAX_EXERCISES_POPULATION_CAVEAT);
     expect(selection.uniqueExerciseIds).toHaveLength(3);
-    // 依優先順序輪流分配：每張卡片先拿第 1 個；第 4 張的步態提示和前面卡片重複，不另外計算
-    expect(selection.cards.map((card) => card.exerciseIds.length)).toEqual([1, 1, 1, 1]);
-    expect(selection.cards[2].exerciseIds).toEqual(selection.cards[3].exerciseIds);
+    // 依優先順序輪流分配：前 3 張卡片各拿 1 個，第 4 張分不到
+    expect(selection.cards.map((card) => card.exerciseIds.length)).toEqual([1, 1, 1, 0]);
   });
 
   it("只有「只提醒就醫」的原因時，不給動作（規則 6）", () => {
@@ -108,5 +107,56 @@ describe("動作挑選規則（exercise-library.md §3）", () => {
     const request = withFinding({ severity: "normal" });
     request.observations = [{ item: "head_forward", status: "observed" }];
     expect(selectExercises(request).uniqueExerciseIds).toHaveLength(0);
+  });
+
+  describe("D40：補位只用同一子型態的動作", () => {
+    function kneeRequest(subtype: "knee_swing_flexion_low" | "knee_stance_flexion_high", severity: "mild" | "marked", causes: string[]) {
+      const base = exampleRequest();
+      return {
+        ...base,
+        findings: [
+          {
+            problem: "knee_flexion_abnormal" as const,
+            subtype,
+            severity,
+            metrics: subtype === "knee_stance_flexion_high" ? { KIC: 22 } : { PKF_sw: 40 },
+            metric_confidence: "high" as const,
+            near_threshold: false,
+            candidate_causes: causes as ReportRequest["findings"][number]["candidate_causes"],
+          },
+        ],
+      };
+    }
+    const SWING_ONLY = ["swing-knee-lift-walking-cue", "standing-quad-stretch", "calf-raise"];
+
+    it("膝蓋彎得較多（明顯）：不補擺盪期的步態提示，寧可少給（只有伸展＋肌力）", () => {
+      const [card] = selectExercises(kneeRequest("knee_stance_flexion_high", "marked", ["hamstring_tightness", "quad_weakness"])).cards;
+      expect(card.exerciseIds).toEqual(["supine-hamstring-towel-stretch", "sit-to-stand"]);
+      for (const id of SWING_ONLY) expect(card.exerciseIds).not.toContain(id);
+    });
+
+    it("膝蓋彎得較多（輕度）：沒有對題的步態提示時只給 1 個", () => {
+      const [card] = selectExercises(kneeRequest("knee_stance_flexion_high", "mild", ["quad_weakness"])).cards;
+      expect(card.exerciseIds).toEqual(["sit-to-stand"]);
+    });
+
+    it("膝蓋彎得較多但候選原因屬於擺盪期：忽略不對題的原因，改用同型態的原因", () => {
+      const [card] = selectExercises(kneeRequest("knee_stance_flexion_high", "marked", ["weak_push_off", "slow_short_stride"])).cards;
+      expect(card.exerciseIds.length).toBeGreaterThan(0);
+      for (const id of card.exerciseIds) expect(["supine-hamstring-towel-stretch", "sit-to-stand"]).toContain(id);
+    });
+
+    it("膝蓋彎得較少：不補著地期的動作（膕旁肌伸展、坐站）", () => {
+      const [card] = selectExercises(kneeRequest("knee_swing_flexion_low", "marked", ["slow_short_stride"])).cards;
+      expect(card.exerciseIds).toEqual(["swing-knee-lift-walking-cue", "standing-quad-stretch", "calf-raise"]);
+      expect(card.exerciseIds).not.toContain("supine-hamstring-towel-stretch");
+      expect(card.exerciseIds).not.toContain("sit-to-stand");
+    });
+
+    it("四張卡片都明顯時，膝蓋彎得較多的卡片不含擺盪期動作", () => {
+      const selection = selectExercises(allProblemsRequest("marked"));
+      const stance = selection.cards.find((card) => card.cardId === "knee_stance_flexion_high")!;
+      for (const id of SWING_ONLY) expect(stance.exerciseIds).not.toContain(id);
+    });
   });
 });

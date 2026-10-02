@@ -6,7 +6,8 @@
  *   2. 定義 Claude 必須回傳的 JSON 格式（aiOutputSchema）。
  *   3. 把 Claude 寫的段落合併回模板報告（mergeAiOutput），合併前逐段檢查：
  *      - 卡片代碼、練習 id 必須是程式提供的候選；只要出現候選以外的 id，整份 AI 結果都不採用。
- *      - 每段文字都要通過 content-filter.ts 的檢查（禁用詞、左右腳、頭部、數字、長度）；
+ *      - 每段文字都要通過 content-filter.ts 的檢查（禁用詞、左右腳、頭部、數字、長度；
+ *        D39 歸因時另外不可評論後腳推蹬）；
  *        沒通過的段落換回模板文字。
  *
  *   這個檔案不呼叫外部服務，可以直接測試。
@@ -26,6 +27,17 @@ import type { ReportBody } from "./types";
 export const TEXT_LIMITS = { summary: 260, whatWeSaw: 180, why: 90 } as const;
 
 const CATEGORY_ZH = { stretch: "放鬆／伸展", strength: "肌力", motor_control: "走路時的動作提示" } as const;
+
+/**
+ * D39：髖伸展偏小已歸因於軀幹前傾時，交給 Claude 的白話說明（不含數值）。
+ * 這時報告沒有「後腳推蹬不足」卡片，也不能把後腳推蹬說成「正常」「很好」。
+ */
+export const HIP_ATTRIBUTED_CONTEXT_NOTE =
+  "這次影片中後腳往後推的幅度也偏小，但判斷是身體往前傾連帶造成的，所以報告只以身體姿勢為重點。卡片下方已有固定說明這件事。請不要在總結語或「我們看到什麼」提到後腳推蹬或髖部，也不要說它正常、很好或在常見範圍內。";
+
+/** D39 歸因時，AI 文字不可出現的說法：總結語與「我們看到什麼」完全不提後腳推蹬；練習連結句不評論推蹬／髖伸展。 */
+const HIP_ATTRIBUTED_FORBIDDEN_MAIN = /推蹬|髖伸展|髖部伸展|後腳/;
+const HIP_ATTRIBUTED_FORBIDDEN_WHY = /推蹬|髖伸展|髖部伸展/;
 
 /** Claude 回傳的格式。長度等限制在合併時檢查，不放在這裡（結構化輸出不支援長度限制）。 */
 export const aiOutputSchema = z.object({
@@ -54,6 +66,8 @@ export interface AiInput {
     timestamps: string[];
     average_trunk_lean_degrees?: number;
     template_what_we_saw: string;
+    /** 給 Claude 的情境說明（白話，不含數值），例如 D39 歸因。 */
+    context_note?: string;
     exercises: Array<{ id: string; name: string; type: string; purpose: string }>;
   }>;
 }
@@ -88,6 +102,7 @@ export function buildAiInput(request: ReportRequest, selection: ExerciseSelectio
         timestamps: cardTimestamps(card),
         ...(degrees !== undefined ? { average_trunk_lean_degrees: degrees } : {}),
         template_what_we_saw: template.problems[index].whatWeSaw,
+        ...(card.finding.hip_attributed_to_trunk ? { context_note: HIP_ATTRIBUTED_CONTEXT_NOTE } : {}),
         exercises: (firstIds.get(card.cardId) ?? []).map((id) => {
           const exercise = getExercise(id)!;
           return {
@@ -158,9 +173,18 @@ export function mergeAiOutput(
     return text.trim();
   };
 
+  // D39：髖伸展已歸因於軀幹前傾時，AI 不可另外評論後腳推蹬（例如說它正常或很好）
+  const hipAttributed = selection.cards.some((card) => card.finding.hip_attributed_to_trunk === true);
+  const forbiddenMain = hipAttributed ? HIP_ATTRIBUTED_FORBIDDEN_MAIN : undefined;
+  const forbiddenWhy = hipAttributed ? HIP_ATTRIBUTED_FORBIDDEN_WHY : undefined;
+
   // 總結語：可以出現的數字只有問題數量與「3 個項目」
   const summaryNumbers = new Set<string>([String(selection.cards.length), "3"]);
-  const summary = accept(output.summary, { maxLength: TEXT_LIMITS.summary, allowedNumbers: summaryNumbers });
+  const summary = accept(output.summary, {
+    maxLength: TEXT_LIMITS.summary,
+    allowedNumbers: summaryNumbers,
+    forbidden: forbiddenMain,
+  });
   if (summary) report.summary = summary;
 
   for (const aiCard of output.cards) {
@@ -177,6 +201,7 @@ export function mergeAiOutput(
       maxLength: TEXT_LIMITS.whatWeSaw,
       allowedNumbers: numbers,
       allowedTimestamps: timestamps,
+      forbidden: forbiddenMain,
     });
     if (saw) view.whatWeSaw = saw;
 
@@ -184,7 +209,7 @@ export function mergeAiOutput(
       const target = view.exercises.find((exercise) => exercise.exerciseId === aiExercise.id && exercise.steps.length > 0);
       if (!target) continue;
       // 連結句不可以有任何數字：劑量、次數只能用動作庫原文（§3 規則 10）
-      const why = accept(aiExercise.why, { maxLength: TEXT_LIMITS.why });
+      const why = accept(aiExercise.why, { maxLength: TEXT_LIMITS.why, forbidden: forbiddenWhy });
       if (why) target.why = why;
     }
   }
