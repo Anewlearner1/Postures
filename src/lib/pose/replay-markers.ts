@@ -3,6 +3,7 @@
  *   骨架回放時間軸上要標示的東西（UX 文件 §4.6；只有計算，沒有畫面）：
  *   - 問題標記：每個問題出現的時間點（演算法 finding 的 timestampsSec，D38），用卡片編號 ①②③ 區分。
  *     演算法沒有提供時間點時就沒有標記（時間軸上不顯示）。
+ *   - 整段持續前傾（Finding.trunkLeanPersistent）：不用點狀標記，改畫一條「整段影片」長條（UX §4.6）。
  *   - 偵測較不穩定的片段：連續偵測不到人、或腿部關節大多看不清楚的時段（灰色斜線底紋）。
  */
 
@@ -26,7 +27,7 @@ export function buildReplayMarkers(
   const markers: ReplayMarker[] = [];
   for (const card of cards) {
     const finding = result.findings.find((item) => cardIdOf(item) === card.id);
-    if (!finding) continue;
+    if (!finding || finding.trunkLeanPersistent) continue;
     for (const timeSec of finding.timestampsSec ?? []) {
       if (!Number.isFinite(timeSec) || timeSec < 0) continue;
       markers.push({
@@ -39,6 +40,28 @@ export function buildReplayMarkers(
     }
   }
   return markers.sort((a, b) => a.timeSec - b.timeSec);
+}
+
+/** 整段影片都有的問題（目前只有軀幹持續前傾）：時間軸上方畫長條。 */
+export interface ReplayBar {
+  cardId: string;
+  markerNumber: number;
+  label: string;
+  problem: ProblemCode;
+}
+
+export function buildReplayBars(
+  result: AnalysisResult,
+  cards: { id: string; markerNumber: number; plainName: string }[],
+): ReplayBar[] {
+  const bars: ReplayBar[] = [];
+  for (const card of cards) {
+    const finding = result.findings.find((item) => cardIdOf(item) === card.id);
+    if (finding?.trunkLeanPersistent) {
+      bars.push({ cardId: card.id, markerNumber: card.markerNumber, label: card.plainName, problem: finding.problem });
+    }
+  }
+  return bars;
 }
 
 const LEG_POINTS = [

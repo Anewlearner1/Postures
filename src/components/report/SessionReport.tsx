@@ -18,7 +18,8 @@ import { useAnalysisSession } from "@/components/session/AnalysisSession";
 import { useLeaveGuard } from "@/components/session/useLeaveGuard";
 import { AI_FALLBACK_NOTICE } from "@/data/analysis-copy";
 import { captureKeyframe, pickKeyframe } from "@/lib/pose/keyframe";
-import { buildReplayMarkers } from "@/lib/pose/replay-markers";
+import { buildReplayBars, buildReplayMarkers } from "@/lib/pose/replay-markers";
+import { metricsByCard } from "@/lib/pose/report-metrics";
 
 export function SessionReport() {
   const router = useRouter();
@@ -37,6 +38,13 @@ export function SessionReport() {
     () => (completed ? buildReplayMarkers(completed.result, completed.report.report.problems) : []),
     [completed],
   );
+
+  const bars = useMemo(
+    () => (completed ? buildReplayBars(completed.result, completed.report.report.problems) : []),
+    [completed],
+  );
+  // 「查看數據」（D44）：演算法的本機代表角度，不送 API
+  const metrics = useMemo(() => (completed ? metricsByCard(completed.result) : {}), [completed]);
 
   // 列印版的關鍵畫面：報告出現後在背景產生（失敗就不放圖）
   const [keyframe, setKeyframe] = useState<Keyframe | null>(null);
@@ -61,6 +69,7 @@ export function SessionReport() {
       report={report}
       generatedAt={completed.completedAt}
       keyframe={keyframe}
+      metricsByCard={metrics}
       notice={source === "ai" ? undefined : { tone: "info", text: AI_FALLBACK_NOTICE }}
       onViewInVideo={(cardId) => replayRef.current?.focusCard(cardId)}
       replay={
@@ -73,6 +82,7 @@ export function SessionReport() {
           analyzedUntilSec={video.plan.untilSec}
           trimmed={video.plan.trimmed}
           markers={markers}
+          bars={bars}
         />
       }
     />

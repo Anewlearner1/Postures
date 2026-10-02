@@ -123,7 +123,19 @@ export const EXTRA_REPORT_NOTES = {
 /** 問題卡片底部「查看數據」（D44、UX §4.3.0；只用本機結果，不送 API）。 */
 export const METRICS_COPY = {
   title: "查看數據",
+  intro: "你的數值（影片中的代表值）：",
   note: "這是從 2D 影片估算的角度，可能有幾度的誤差。",
+  /** 各指標的白話名稱（不寫左右腳，D26）。【待審閱】 */
+  labels: {
+    PHE: "髖部最大後伸",
+    PKF_sw: "腳往前擺時膝蓋最大彎曲",
+    KIC: "腳跟著地時膝蓋彎曲",
+    TRK: "身體前傾",
+  },
+  value: (deg: number) => `約 ${deg} 度`,
+  rangeAtLeast: (deg: number) => `約 ${deg} 度以上`,
+  rangeAtMost: (deg: number) => `約 ${deg} 度以下`,
+  rangeBelow: (deg: number) => `小於 ${deg} 度`,
 } as const;
 
 /**

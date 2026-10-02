@@ -99,6 +99,8 @@ export const REPLAY_CONTROLS = {
   fullscreen: "全螢幕",
   exitFullscreen: "離開全螢幕",
   timeline: "時間軸",
+  /** 軀幹整段持續前傾時的長條標示（UX §4.6）。 */
+  wholeVideo: "整段影片",
   help: {
     title: "怎麼看骨架回放？",
     items: [

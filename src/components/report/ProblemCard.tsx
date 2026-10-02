@@ -144,6 +144,7 @@ export function ProblemCard({
       {metrics && metrics.length > 0 && (
         <div className="border-t border-line">
           <Collapsible title={METRICS_COPY.title}>
+            <p className="text-sm text-muted">{METRICS_COPY.intro}</p>
             <dl className="space-y-1">
               {metrics.map((row) => (
                 <div key={row.label} className="flex flex-wrap gap-x-2">

@@ -71,8 +71,37 @@ test.describe("沒有影片時的導向", () => {
 test("示範報告頁可以打開", async ({ page }) => {
   await page.goto("/report/sample");
   await expect(page.getByRole("heading", { name: "你的走路分析報告" })).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByText("這是示範報告（假資料）")).toBeVisible();
+  await expect(page.getByText("這是示範報告（假資料）").filter({ visible: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "骨架回放" })).toBeVisible();
+});
+
+test("示範報告：下載報告（列印版）只在列印時出現，內容全部展開", async ({ page }) => {
+  await page.goto("/report/sample");
+  await expect(page.getByRole("heading", { name: "你的走路分析報告" })).toBeVisible({ timeout: 20_000 });
+  const printReport = page.getByTestId("print-report");
+  await expect(printReport).toBeHidden();
+  await expect(page.getByRole("button", { name: "下載報告" }).first()).toBeEnabled();
+
+  await page.emulateMedia({ media: "print" });
+  await expect(printReport).toBeVisible();
+  await expect(printReport.getByText("這是示範報告（假資料）")).toBeVisible();
+  await expect(printReport.getByText("測試版標準").first()).toBeVisible();
+  await expect(printReport.getByText(/產生日期：/).first()).toBeVisible();
+  // 練習全文在列印版直接展開
+  await expect(printReport.getByRole("heading", { name: "建議練習" }).first()).toBeVisible();
+  // 互動版與頁首在列印時隱藏
+  await expect(page.getByRole("button", { name: "下載報告" }).first()).toBeHidden();
+});
+
+test("手機版：捲到報告後半出現底部固定按鈕列", async ({ page }) => {
+  test.skip((page.viewportSize()?.width ?? 0) >= 1024, "只在手機版");
+  await page.goto("/report/sample");
+  await expect(page.getByRole("heading", { name: "你的走路分析報告" })).toBeVisible({ timeout: 20_000 });
+  const bar = page.getByTestId("mobile-action-bar");
+  await expect(bar).toHaveAttribute("inert", "");
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await expect(bar).not.toHaveAttribute("inert", "");
+  await expect(bar.getByRole("button", { name: "下載報告" })).toBeVisible();
 });
 
 test("真實走路影片：上傳 → 分析 → 報告（需設定 E2E_WALK_VIDEO）", async ({ page }) => {

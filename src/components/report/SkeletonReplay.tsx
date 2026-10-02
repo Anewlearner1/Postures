@@ -17,7 +17,7 @@ import { REPLAY_CONTROLS, trimmedReplayNotice } from "@/data/analysis-copy";
 import { REPLAY_COPY } from "@/data/report-copy";
 import type { PoseSequence } from "@/lib/gait/types";
 import { formatClock } from "@/lib/pose/preflight";
-import { unstableRanges, type ReplayMarker } from "@/lib/pose/replay-markers";
+import { unstableRanges, type ReplayBar, type ReplayMarker } from "@/lib/pose/replay-markers";
 import { containRect, drawSkeleton, frameIndexAt, highlightJoints, nearSides } from "@/lib/pose/skeleton";
 
 export interface SkeletonReplayHandle {
@@ -37,6 +37,8 @@ interface SkeletonReplayProps {
   analyzedUntilSec: number;
   trimmed: boolean;
   markers: ReplayMarker[];
+  /** 整段影片都有的問題（軀幹持續前傾）：時間軸上方畫長條，不用點狀標記。 */
+  bars?: ReplayBar[];
 }
 
 const SPEEDS = [0.25, 0.5, 1] as const;
@@ -63,6 +65,7 @@ export function SkeletonReplay({
   analyzedUntilSec,
   trimmed,
   markers,
+  bars = [],
 }: SkeletonReplayProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -254,11 +257,18 @@ export function SkeletonReplay({
     () => ({
       focusCard(cardId: string) {
         const marker = markers.find((item) => item.cardId === cardId);
-        if (marker) jumpToMarker(marker);
-        else scrollToReplay();
+        if (marker) return jumpToMarker(marker);
+        scrollToReplay();
+        // 整段都有的問題：不跳時間，只標示關節與小標籤
+        const bar = bars.find((item) => item.cardId === cardId);
+        if (bar) {
+          highlightRef.current = { problem: bar.problem, untilMs: performance.now() + PULSE_MS };
+          setLabel({ text: `${bar.markerNumber} ${bar.label}：${REPLAY_CONTROLS.wholeVideo}`, color: markerColor(bar.markerNumber), key: Date.now() });
+          setPulsing(true);
+        }
       },
     }),
-    [markers, jumpToMarker, scrollToReplay],
+    [markers, bars, jumpToMarker, scrollToReplay],
   );
 
   async function toggleFullscreen() {
@@ -390,8 +400,23 @@ export function SkeletonReplay({
         )}
       </div>
 
+      {/* 整段影片都有的問題：時間軸上方的淡色長條（UX §4.6） */}
+      {bars.map((bar) => (
+        <div key={bar.cardId} className="mt-4" data-testid="replay-bar">
+          <p className="text-xs font-semibold" style={{ color: markerColor(bar.markerNumber) }}>
+            {bar.markerNumber} {bar.label}：{REPLAY_CONTROLS.wholeVideo}
+          </p>
+          <div className="relative mt-1 h-2" aria-hidden>
+            <span
+              className="absolute inset-y-0 left-0 rounded-full opacity-40"
+              style={{ backgroundColor: markerColor(bar.markerNumber), width: pct(Math.min(analyzedUntilSec, duration)) }}
+            />
+          </div>
+        </div>
+      ))}
+
       {/* 時間軸 */}
-      <div className="relative mt-4 h-11">
+      <div className={`relative h-11 ${bars.length > 0 ? "mt-1" : "mt-4"}`}>
         <div className="absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 overflow-hidden rounded-full bg-line">
           {unstable.map((range) => (
             <span
@@ -449,7 +474,7 @@ export function SkeletonReplay({
       </div>
 
       {/* 圖例 */}
-      {(legend.length > 0 || unstable.length > 0) && (
+      {(legend.length > 0 || bars.length > 0 || unstable.length > 0) && (
         <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
           {legend.map((marker) => (
             <li key={marker.markerNumber} className="flex items-center gap-1">
@@ -462,6 +487,19 @@ export function SkeletonReplay({
               {marker.label}
             </li>
           ))}
+          {bars
+            .filter((bar) => !legend.some((marker) => marker.markerNumber === bar.markerNumber))
+            .map((bar) => (
+              <li key={bar.cardId} className="flex items-center gap-1">
+                <span
+                  className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-xs font-bold text-white"
+                  style={{ backgroundColor: markerColor(bar.markerNumber) }}
+                >
+                  {bar.markerNumber}
+                </span>
+                {bar.label}（{REPLAY_CONTROLS.wholeVideo}）
+              </li>
+            ))}
           {unstable.length > 0 && (
             <li className="flex items-center gap-1 text-muted">
               <span

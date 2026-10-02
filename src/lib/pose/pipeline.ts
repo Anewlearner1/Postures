@@ -156,11 +156,11 @@ function isAbort(error: unknown): boolean {
 }
 
 /**
- * 「分析了幾步」：演算法輸出目前只有完整步態週期數，一個週期含左右各一步，暫以週期數 × 2 估算。
- * （待演算法提供實際步數後替換。）
+ * 「分析了幾步」：用演算法算出的步數（walking.stepsAnalyzed，gait-rules.md §2.8）；
+ * 舊資料沒有這個欄位時，以完整週期數 × 2 估算（一個週期含左右各一步）。
  */
 export function estimateSteps(result: AnalysisResult): number {
-  return result.walking.validCyclesTotal * 2;
+  return result.walking.stepsAnalyzed ?? result.walking.validCyclesTotal * 2;
 }
 
 export async function runAnalysisPipeline(
