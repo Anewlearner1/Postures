@@ -1,12 +1,12 @@
-# 訓練動作庫草案（v0.1）
+# 訓練動作庫（v0.2）
 
-> 文件性質：動作庫草案，供產品負責人（運動科學）審閱；LLM 撰寫報告時**只能從本庫挑選動作 id**，不得自行新增動作或修改劑量。
+> 文件性質：動作庫，已套用產品負責人決議 SPEC D22–D32（主要影響：D24 膝過伸延到第二版、D25 頭部前傾只作觀察、D26 不顯示左右側、D27 走速只附註、D30 使用族群）。LLM 撰寫報告時**只能從本庫挑選第一版啟用的動作 id**，不得自行新增動作或修改劑量。
 > 撰寫：運動科學研究助理（AI 協作產出）｜日期：2026-10-02
 > 相關文件：[`gait-rules.md`](gait-rules.md)（問題判斷與原因代碼）、[`ux-flow-and-copy.md`](ux-flow-and-copy.md)（報告文案）
 
 ## 問題 → 原因 → 動作 id 對應總表
 
-原因代碼與 `gait-rules.md` §3.4、§4.4、§5.4 一致。同一動作可對應多個問題或原因（例如 `calf-raise`、`half-kneeling-hip-flexor-stretch`）。
+原因代碼與 `gait-rules.md` §3.4、§4.4、§5.4 一致。同一動作可對應多個問題或原因（例如 `calf-raise`、`half-kneeling-hip-flexor-stretch`）。標示「第一版不觸發」的列與動作保留內容供第二版使用，規則引擎在第一版**不得**選用（D24、D25）。
 
 | 問題 | 可能原因（代碼） | 對應動作 id |
 |---|---|---|
@@ -19,24 +19,24 @@
 | 〃 | 走得慢、步伐小的習慣<br>`slow_short_stride` | `swing-knee-lift-walking-cue` |
 | 〃 | 大腿後側（膕旁肌）緊繃<br>`hamstring_tightness` | `supine-hamstring-towel-stretch` |
 | 〃 | 大腿前側（股四頭肌）力量或耐力不足<br>`quad_weakness` | `sit-to-stand` |
-| 〃 | 膝蓋控制不佳、習慣把膝蓋往後「鎖死」<br>`knee_control_locking` | `soft-knee-single-leg-balance`<br>`sit-to-stand` |
-| **軀幹／頭部前傾**<br>`trunk_head_forward_lean` | 上背（胸椎）僵硬、駝背習慣<br>`thoracic_stiffness` | `seated-thoracic-extension`<br>`wall-angel` |
+| 〃 | ~~膝蓋控制不佳、習慣把膝蓋往後「鎖死」~~<br>`knee_control_locking`<br>**第一版不觸發**（D24：膝過伸延到第二版） | `soft-knee-single-leg-balance`<br>`sit-to-stand` |
+| **軀幹／頭部前傾**<br>`trunk_head_forward_lean` | 上背（胸椎）僵硬、駝背習慣<br>`thoracic_stiffness` | `seated-thoracic-extension`<br>`wall-angel`<br>`tall-walking-cue` |
 | 〃 | 胸前肌肉（胸大肌、胸小肌）緊繃、圓肩<br>`pec_tightness` | `doorway-pec-stretch`<br>`wall-angel` |
-| 〃 | 頸部深層穩定肌耐力不足<br>`deep_neck_flexor_weakness` | `chin-tuck` |
+| 〃 | ~~頸部深層穩定肌耐力不足~~<br>`deep_neck_flexor_weakness`<br>**第一版不觸發**（D25：頭部前傾第一版只作觀察） | `chin-tuck` |
 | 〃 | 背部與肩胛周圍肌群耐力不足<br>`back_scapular_endurance` | `wall-angel` |
 | 〃 | 髖屈肌（大腿前側、鼠蹊部深層肌肉）緊繃<br>`hip_flexor_tightness` | `half-kneeling-hip-flexor-stretch` |
-| 〃 | 走路習慣低頭看地面或手機<br>`gaze_habit` | `tall-walking-cue` |
+| 〃 | ~~走路習慣低頭看地面或手機~~<br>`gaze_habit`<br>**第一版不觸發**（D25：頭部前傾第一版只作觀察） | `tall-walking-cue` |
 | 髖伸展不足 | 髖、腰或膝疼痛造成的保護性走法<br>`pain_guarding` | **不給動作**：提醒諮詢醫師或物理治療師 |
 | 膝屈曲異常 | 膝蓋疼痛、腫脹或近期手術<br>`knee_pain_swelling` | **不給動作**：提醒諮詢醫師或物理治療師 |
 | 軀幹／頭部前傾 | 背痛、平衡差怕跌、骨質疏鬆或脊椎壓迫性骨折、神經疾患（如帕金森氏症）<br>`pain_balance_osteoporosis` | **不給動作**：提醒諮詢醫師或物理治療師 |
 
-各問題的動作數量與類型：
+各問題第一版啟用的動作數量與類型（「第一版不觸發」的動作另列）：
 
-| 問題 | 放鬆／伸展 | 肌力 | 動作控制／步態再教育 | 合計 |
-|---|---|---|---|---|
-| 髖伸展不足 | `half-kneeling-hip-flexor-stretch` | `glute-bridge`<br>`standing-hip-extension`<br>`calf-raise`<br>`split-squat` | `push-off-walking-cue` | 6 |
-| 膝屈曲異常 | `standing-quad-stretch`<br>`supine-hamstring-towel-stretch` | `calf-raise`<br>`sit-to-stand` | `soft-knee-single-leg-balance`<br>`swing-knee-lift-walking-cue` | 6 |
-| 軀幹／頭部前傾 | `half-kneeling-hip-flexor-stretch`<br>`doorway-pec-stretch`<br>`seated-thoracic-extension` | `wall-angel` | `chin-tuck`<br>`tall-walking-cue` | 6 |
+| 問題 | 放鬆／伸展 | 肌力 | 動作控制／步態再教育 | 第一版啟用合計 | 第一版不觸發 |
+|---|---|---|---|---|---|
+| 髖伸展不足 | `half-kneeling-hip-flexor-stretch` | `glute-bridge`<br>`standing-hip-extension`<br>`calf-raise`<br>`split-squat` | `push-off-walking-cue` | 6 | — |
+| 膝屈曲異常 | `standing-quad-stretch`<br>`supine-hamstring-towel-stretch` | `calf-raise`<br>`sit-to-stand` | `swing-knee-lift-walking-cue` | 5 | `soft-knee-single-leg-balance` |
+| 軀幹／頭部前傾 | `half-kneeling-hip-flexor-stretch`<br>`doorway-pec-stretch`<br>`seated-thoracic-extension` | `wall-angel` | `tall-walking-cue` | 5 | `chin-tuck` |
 
 ## 目錄
 
@@ -54,7 +54,8 @@
 
 ## 1. 使用原則
 
-- **對象**：一般成年人、可以自行安全走路、沒有已知會影響運動的疾病。內容是健康促進與運動建議，**不是治療處方**。
+- **對象**：18 歲以上、可以自行安全走路的成人（D30）。孕婦、神經疾患、正在疼痛者仍可使用，但報告會提醒結果可能不適用，並優先顯示就醫提醒（§3 規則 6）。內容是健康促進與運動建議，**不是治療處方**。
+- **第一版範圍**：頭部前傾只作「觀察」，不觸發任何動作（D25）；膝過伸延到第二版（D24）。相關動作 `chin-tuck`、`soft-knee-single-leg-balance` 保留內容，但標為「第一版不觸發」。
 - **安全優先**：全部動作居家可做、免器材或只需椅子、毛巾、彈力帶、台階等簡單物品；每個動作都有退階版，平衡不佳者有扶持版本。
 - **三種類型搭配**：
   - 放鬆／伸展：處理「緊」（活動度不足）。
@@ -96,17 +97,20 @@
 
 ## 3. 動作挑選規則（給規則引擎與 LLM）
 
-建議由**規則引擎先挑出候選動作 id**，LLM 只負責排序文字與解釋；若產品決定讓 LLM 自行挑選，也必須遵守以下規則並經程式驗證 id 存在於本庫。
+建議由**規則引擎先挑出候選動作 id**，LLM 只負責排序文字與解釋；若產品決定讓 LLM 自行挑選，也必須遵守以下規則，並由程式驗證 id 存在於本庫且 `v1_active = true`。
 
-1. 只為判定為「輕度」或「明顯」的問題挑動作；「正常」不給動作。
+1. 只為判定為「輕度」或「明顯」的問題挑動作；「正常」不給動作。只使用總表中第一版啟用的列與 `v1_active = true` 的動作。
 2. 每個問題依 `gait-rules.md` 輸出的 `candidate_causes`，從總表挑選：
    - **輕度**：2 個動作 = 1 個步態提示練習（motor_control）＋ 1 個伸展或肌力動作。
    - **明顯**：3 個動作 = 1 個步態提示練習＋ 1 個伸展＋ 1 個肌力動作（若該問題沒有對應類型，從同問題其他原因補）。
 3. **整份報告最多 6 個動作**；同一動作出現在多個問題時只列一次，並註明它同時對應哪些問題。
-4. **低可信度**時：每個問題最多 1 個動作，優先挑最安全的（伸展或步態提示），並在文案中提醒先重拍確認。
-5. 使用者若在問卷中勾選「平衡不佳／近期跌倒」或「年長」（若產品有此欄位）：優先使用退階版，需要單腳站、跪姿或深蹲的動作改用其退階版（`soft-knee-single-leg-balance` 改為腳尖點地、`split-squat` 改為 1/4 深度、`half-kneeling-hip-flexor-stretch` 改為站姿版、`glute-bridge` 視情況改為 `standing-hip-extension`）。
-6. 原因代碼若是 `pain_guarding`、`knee_pain_swelling`、`pain_balance_osteoporosis`，或使用者回報疼痛：不加動作，改顯示就醫提醒。
-7. LLM **不得修改**劑量、步驟、禁忌；可以改寫的只有開場說明與「為什麼建議這個動作」的白話連結句。
+4. **低可信度**時（使用者看到「較低」，D28）：嚴重度仍照常顯示並加註「僅供參考」（D20），但每個問題最多 1 個動作，優先挑最安全的（伸展或步態提示），並在文案中提醒先重拍確認。可信度「中」（使用者看到「良好」附小提示）時不限制。
+5. 使用者若在問卷中勾選「平衡不佳／近期跌倒」或「年長」（若產品有此欄位）：需要跪姿、深蹲或仰躺的動作改用其退階版（`split-squat` 改為 1/4 深度、`half-kneeling-hip-flexor-stretch` 改為站姿版、`glute-bridge` 視情況改為 `standing-hip-extension`）。
+6. 原因代碼若是 `pain_guarding`、`knee_pain_swelling`、`pain_balance_osteoporosis`：該原因不加動作，改顯示就醫提醒。`population_caveat = true`（上傳前勾選懷孕、神經疾患或正在疼痛，D30）時：照常挑選，但一律使用退階版、整份報告最多 3 個動作，並把就醫提醒放在動作清單之前。
+7. **頭部前傾（觀察項目）不觸發任何動作**（D25）；即使 `observations` 中有 `head_forward`，也不得加入 `chin-tuck` 或其他動作。
+8. **不提左右側**（D26）：動作說明一律寫「兩側都做」，不得寫「右腳多做幾組」之類依側別調整的建議。
+9. **走得偏慢**（`slow_speed`，D27）：不改變挑選數量與劑量；可在 `push-off-walking-cue`、`swing-knee-lift-walking-cue` 的連結句中提醒「用平常速度走」。
+10. LLM **不得修改**劑量、步驟、禁忌；可以改寫的只有開場說明與「為什麼建議這個動作」的白話連結句。
 
 ## 4. 動作說明：髖伸展不足
 
@@ -114,6 +118,7 @@
 
 | 欄位 | 內容 |
 |---|---|
+| 第一版狀態 | 啟用 |
 | 類型 | 放鬆／伸展 |
 | 對應問題 | 髖伸展不足、軀幹／頭部前傾 |
 | 對應原因 | 髖屈肌（大腿前側、鼠蹊部深層肌肉）緊繃（`hip_flexor_tightness`） |
@@ -154,6 +159,7 @@
 
 | 欄位 | 內容 |
 |---|---|
+| 第一版狀態 | 啟用 |
 | 類型 | 肌力 |
 | 對應問題 | 髖伸展不足 |
 | 對應原因 | 臀部肌肉（臀大肌）力量不足（`glute_weakness`） |
@@ -192,6 +198,7 @@
 
 | 欄位 | 內容 |
 |---|---|
+| 第一版狀態 | 啟用 |
 | 類型 | 肌力 |
 | 對應問題 | 髖伸展不足 |
 | 對應原因 | 臀部肌肉（臀大肌）力量不足（`glute_weakness`） |
@@ -228,6 +235,7 @@
 
 | 欄位 | 內容 |
 |---|---|
+| 第一版狀態 | 啟用 |
 | 類型 | 肌力 |
 | 對應問題 | 髖伸展不足、膝屈曲異常 |
 | 對應原因 | 小腿推蹬力不足（踝蹠屈肌）（`weak_push_off`） |
@@ -263,6 +271,7 @@
 
 | 欄位 | 內容 |
 |---|---|
+| 第一版狀態 | 啟用 |
 | 類型 | 肌力 |
 | 對應問題 | 髖伸展不足 |
 | 對應原因 | 臀部肌肉（臀大肌）力量不足（`glute_weakness`）、髖屈肌（大腿前側、鼠蹊部深層肌肉）緊繃（`hip_flexor_tightness`） |
@@ -299,6 +308,7 @@
 
 | 欄位 | 內容 |
 |---|---|
+| 第一版狀態 | 啟用 |
 | 類型 | 動作控制／步態再教育 |
 | 對應問題 | 髖伸展不足 |
 | 對應原因 | 走得慢、步伐小的習慣（`slow_short_stride`）、小腿推蹬力不足（踝蹠屈肌）（`weak_push_off`） |
@@ -341,6 +351,7 @@
 
 | 欄位 | 內容 |
 |---|---|
+| 第一版狀態 | 啟用 |
 | 類型 | 放鬆／伸展 |
 | 對應問題 | 膝屈曲異常 |
 | 對應原因 | 大腿前側（股四頭肌、股直肌）緊繃（`quad_rectus_tightness`） |
@@ -378,6 +389,7 @@
 
 | 欄位 | 內容 |
 |---|---|
+| 第一版狀態 | 啟用 |
 | 類型 | 放鬆／伸展 |
 | 對應問題 | 膝屈曲異常 |
 | 對應原因 | 大腿後側（膕旁肌）緊繃（`hamstring_tightness`） |
@@ -416,10 +428,11 @@
 
 | 欄位 | 內容 |
 |---|---|
+| 第一版狀態 | 啟用 |
 | 類型 | 肌力 |
 | 對應問題 | 膝屈曲異常 |
-| 對應原因 | 大腿前側（股四頭肌）力量或耐力不足（`quad_weakness`）、膝蓋控制不佳、習慣把膝蓋往後「鎖死」（`knee_control_locking`） |
-| 目的 | 強化大腿前側與臀部，並練習站直時膝蓋「伸直但不往後鎖死」，讓支撐時膝蓋撐得住、不會一直彎著或往後頂。 |
+| 對應原因 | 大腿前側（股四頭肌）力量或耐力不足（`quad_weakness`）、膝蓋控制不佳、習慣把膝蓋往後「鎖死」（`knee_control_locking`）［第一版不觸發］ |
+| 目的 | 強化大腿前側與臀部，讓著地與支撐時膝蓋撐得住、不會一直彎著；站直時也練習膝蓋「伸直但不往後鎖死」（後者對應第二版的膝過伸）。 |
 | 器材 | 穩固、沒有輪子的椅子（約膝蓋高度），靠牆擺放 |
 | 起始姿勢 | 坐在椅子前半部，雙腳平踩地面、與髖同寬，腳掌略在膝蓋正下方或稍後方，雙手交叉放胸前。 |
 | 劑量 | **8–12 下 × 2–3 組，每週 2–3 天**（組數：2–3 組；次數／時間：每組 8–12 下；頻率：每週 2–3 天）。每組最後 2–3 下應該「有點累但姿勢還能做好」；能輕鬆完成上限次數時再進階（ACSM 建議每週 2–3 天）。 |
@@ -452,9 +465,10 @@
 
 | 欄位 | 內容 |
 |---|---|
+| 第一版狀態 | **第一版不觸發（D24：膝過伸延到第二版）；保留給第二版膝過伸使用。** |
 | 類型 | 動作控制／步態再教育 |
 | 對應問題 | 膝屈曲異常 |
-| 對應原因 | 膝蓋控制不佳、習慣把膝蓋往後「鎖死」（`knee_control_locking`）、大腿前側（股四頭肌）力量或耐力不足（`quad_weakness`） |
+| 對應原因 | 膝蓋控制不佳、習慣把膝蓋往後「鎖死」（`knee_control_locking`）［第一版不觸發］、大腿前側（股四頭肌）力量或耐力不足（`quad_weakness`） |
 | 目的 | 練習單腳支撐時膝蓋保持「微微放鬆」而不是往後鎖死，改善支撐期膝蓋過度伸直的習慣。 |
 | 器材 | 穩固的椅背或流理台 |
 | 起始姿勢 | 站在椅背後方，雙手輕扶，雙腳與髖同寬。 |
@@ -488,6 +502,7 @@
 
 | 欄位 | 內容 |
 |---|---|
+| 第一版狀態 | 啟用 |
 | 類型 | 動作控制／步態再教育 |
 | 對應問題 | 膝屈曲異常 |
 | 對應原因 | 大腿前側（股四頭肌、股直肌）緊繃（`quad_rectus_tightness`）、小腿推蹬力不足（踝蹠屈肌）（`weak_push_off`）、走得慢、步伐小的習慣（`slow_short_stride`） |
@@ -529,9 +544,10 @@
 
 | 欄位 | 內容 |
 |---|---|
+| 第一版狀態 | **第一版不觸發（D25：頭部前傾只作觀察）；保留給第二版頭部前傾分級使用。** |
 | 類型 | 動作控制／步態再教育 |
 | 對應問題 | 軀幹／頭部前傾 |
-| 對應原因 | 頸部深層穩定肌耐力不足（`deep_neck_flexor_weakness`） |
+| 對應原因 | 頸部深層穩定肌耐力不足（`deep_neck_flexor_weakness`）［第一版不觸發］ |
 | 目的 | 喚醒並訓練頸部深層穩定肌（深層頸屈肌），讓頭回到肩膀正上方，而不是往前伸。 |
 | 器材 | 無（可以背靠牆做） |
 | 起始姿勢 | 背靠牆站，或坐在椅子上坐直，眼睛平視前方，肩膀放鬆。 |
@@ -567,6 +583,7 @@
 
 | 欄位 | 內容 |
 |---|---|
+| 第一版狀態 | 啟用 |
 | 類型 | 放鬆／伸展 |
 | 對應問題 | 軀幹／頭部前傾 |
 | 對應原因 | 胸前肌肉（胸大肌、胸小肌）緊繃、圓肩（`pec_tightness`） |
@@ -605,6 +622,7 @@
 
 | 欄位 | 內容 |
 |---|---|
+| 第一版狀態 | 啟用 |
 | 類型 | 放鬆／伸展 |
 | 對應問題 | 軀幹／頭部前傾 |
 | 對應原因 | 上背（胸椎）僵硬、駝背習慣（`thoracic_stiffness`） |
@@ -642,6 +660,7 @@
 
 | 欄位 | 內容 |
 |---|---|
+| 第一版狀態 | 啟用 |
 | 類型 | 肌力 |
 | 對應問題 | 軀幹／頭部前傾 |
 | 對應原因 | 背部與肩胛周圍肌群耐力不足（`back_scapular_endurance`）、上背（胸椎）僵硬、駝背習慣（`thoracic_stiffness`）、胸前肌肉（胸大肌、胸小肌）緊繃、圓肩（`pec_tightness`） |
@@ -679,9 +698,10 @@
 
 | 欄位 | 內容 |
 |---|---|
+| 第一版狀態 | 啟用 |
 | 類型 | 動作控制／步態再教育 |
 | 對應問題 | 軀幹／頭部前傾 |
-| 對應原因 | 走路習慣低頭看地面或手機（`gaze_habit`）、上背（胸椎）僵硬、駝背習慣（`thoracic_stiffness`）、頸部深層穩定肌耐力不足（`deep_neck_flexor_weakness`） |
+| 對應原因 | 走路習慣低頭看地面或手機（`gaze_habit`）［第一版不觸發］、上背（胸椎）僵硬、駝背習慣（`thoracic_stiffness`）、頸部深層穩定肌耐力不足（`deep_neck_flexor_weakness`）［第一版不觸發］ |
 | 目的 | 把正確姿勢帶進真正走路：頭在肩膀正上方、上身直立、眼睛看前方，而不是低頭彎腰走。 |
 | 器材 | 一段約 10 公尺、平坦安全的走道 |
 | 起始姿勢 | 站好先找姿勢：想像頭頂有一條線輕輕往上拉，耳朵在肩膀正上方，肩膀放鬆往下。 |
@@ -733,41 +753,101 @@
 
 1. **證據強度落差**：只有「髖屈肌伸展 → 行走髖伸展增加」有直接的隨機對照試驗（Watt 2011，對象為行走髖伸展受限的健康老人）。其餘動作與步態指標的對應多為生物力學推理，報告文案應避免宣稱「做了就會改善步態」，建議用「有助於…」的說法。
 2. **膝屈曲異常的原因歸因**：僵直膝相關文獻多來自中風、腦性麻痺等神經族群（Kerrigan 1991、Goldberg 2003）。一般大眾的「輕度」擺盪期膝屈曲減少，可能更多與走速慢、推蹬弱有關，請確認原因的優先順序與動作配對是否合理。
-3. **膝過伸的動作**（`soft-knee-single-leg-balance`，以及 `sit-to-stand` 中「站直不鎖膝」的提示）是否保留，取決於 `gait-rules.md` 是否在第一版納入膝過伸判斷。
+3. **已依決議調整（請確認）**：膝過伸延到第二版（D24），`soft-knee-single-leg-balance` 與原因 `knee_control_locking` 標為第一版不觸發；頭部前傾只作觀察（D25），`chin-tuck` 與原因 `deep_neck_flexor_weakness`、`gaze_habit` 標為第一版不觸發；`tall-walking-cue` 改由軀幹前傾的 `thoracic_stiffness` 觸發，內容仍包含「頭在肩膀正上方」的提示。請確認這個提示不會被視為「針對頭部前傾的建議」而與 D25 衝突。
 4. **劑量**：伸展與肌力劑量依 ACSM 2011 一般成人建議；Watt 2011 的「每天兩次、10 週」髖屈肌伸展頻率高於一般建議，是否要在報告中採用？動作控制練習（步態提示）的頻率與時長完全是推估。
 5. **跪姿與仰躺動作的適用性**：`half-kneeling-hip-flexor-stretch`、`glute-bridge`、`supine-hamstring-towel-stretch` 對年長者、膝痛者或孕婦可能不便，是否預設改用站姿或坐姿版本？
 6. **禁忌與轉介條件的完整度**：特別是人工關節置換後的動作限制（髖關節置換依手術入路不同，限制方向不同）、骨質疏鬆者的脊椎伸展、懷孕各期的仰躺限制。建議請具臨床執照的物理治療師再審一次。
 7. **開始前檢核問題**（§2）是參考一般運動前篩檢的精神改寫，不是正式的 PAR-Q+ 問卷；是否改用正式授權版本，需要產品與法務決定。
 8. **用語**：請確認名稱與提示語對一般大眾是否易懂、不會引起誤解（例如「鎖膝」「捲尾椎」）。
-9. **動作數量與組合上限**：§3 建議整份報告最多 6 個動作；是否符合你對使用者遵從度的預期？
+9. **動作數量與組合上限**：§3 建議整份報告最多 6 個動作，`population_caveat` 時最多 3 個；是否符合你對使用者遵從度與安全的預期？
 10. **刻意未納入的動作**：上台階（step-up）、鳥狗式（bird-dog）等，因跌倒風險較高或需要四足跪姿而暫不列入；若希望強化進階族群的內容，可在第二版加入。
 
 ## 9. 結構化資料（JSON）
 
-欄位說明：`problems`／`causes` 使用 `gait-rules.md` 的代碼；`category` 為 `stretch`（放鬆／伸展）、`strength`（肌力）、`motor_control`（動作控制／步態再教育）。本 JSON 與上方文字由同一份資料產生，內容一致。
+欄位說明：`problems`／`causes` 使用 `gait-rules.md` 的代碼；`category` 為 `stretch`（放鬆／伸展）、`strength`（肌力）、`motor_control`（動作控制／步態再教育）；`v1_active` 為第一版是否可被選用（原因、對應列、動作三個層級都有），`v1_note` 說明不觸發的決議依據。本 JSON 與上方文字由同一份資料產生，內容一致。
 
 ```json
 {
-  "version": "exercise-library-v0.1-draft",
+  "version": "exercise-library-v0.2",
+  "decisions_applied": [
+    "D24",
+    "D25",
+    "D26",
+    "D27",
+    "D28",
+    "D30"
+  ],
   "problems": {
     "hip_extension_deficit": "髖伸展不足",
     "knee_flexion_abnormal": "膝屈曲異常",
     "trunk_head_forward_lean": "軀幹／頭部前傾"
   },
   "causes": {
-    "hip_flexor_tightness": "髖屈肌（大腿前側、鼠蹊部深層肌肉）緊繃",
-    "glute_weakness": "臀部肌肉（臀大肌）力量不足",
-    "weak_push_off": "小腿推蹬力不足（踝蹠屈肌）",
-    "slow_short_stride": "走得慢、步伐小的習慣",
-    "quad_rectus_tightness": "大腿前側（股四頭肌、股直肌）緊繃",
-    "hamstring_tightness": "大腿後側（膕旁肌）緊繃",
-    "quad_weakness": "大腿前側（股四頭肌）力量或耐力不足",
-    "knee_control_locking": "膝蓋控制不佳、習慣把膝蓋往後「鎖死」",
-    "thoracic_stiffness": "上背（胸椎）僵硬、駝背習慣",
-    "pec_tightness": "胸前肌肉（胸大肌、胸小肌）緊繃、圓肩",
-    "deep_neck_flexor_weakness": "頸部深層穩定肌耐力不足",
-    "back_scapular_endurance": "背部與肩胛周圍肌群耐力不足",
-    "gaze_habit": "走路習慣低頭看地面或手機"
+    "hip_flexor_tightness": {
+      "name_zh": "髖屈肌（大腿前側、鼠蹊部深層肌肉）緊繃",
+      "v1_active": true,
+      "v1_note": ""
+    },
+    "glute_weakness": {
+      "name_zh": "臀部肌肉（臀大肌）力量不足",
+      "v1_active": true,
+      "v1_note": ""
+    },
+    "weak_push_off": {
+      "name_zh": "小腿推蹬力不足（踝蹠屈肌）",
+      "v1_active": true,
+      "v1_note": ""
+    },
+    "slow_short_stride": {
+      "name_zh": "走得慢、步伐小的習慣",
+      "v1_active": true,
+      "v1_note": ""
+    },
+    "quad_rectus_tightness": {
+      "name_zh": "大腿前側（股四頭肌、股直肌）緊繃",
+      "v1_active": true,
+      "v1_note": ""
+    },
+    "hamstring_tightness": {
+      "name_zh": "大腿後側（膕旁肌）緊繃",
+      "v1_active": true,
+      "v1_note": ""
+    },
+    "quad_weakness": {
+      "name_zh": "大腿前側（股四頭肌）力量或耐力不足",
+      "v1_active": true,
+      "v1_note": ""
+    },
+    "knee_control_locking": {
+      "name_zh": "膝蓋控制不佳、習慣把膝蓋往後「鎖死」",
+      "v1_active": false,
+      "v1_note": "D24：膝過伸延到第二版"
+    },
+    "thoracic_stiffness": {
+      "name_zh": "上背（胸椎）僵硬、駝背習慣",
+      "v1_active": true,
+      "v1_note": ""
+    },
+    "pec_tightness": {
+      "name_zh": "胸前肌肉（胸大肌、胸小肌）緊繃、圓肩",
+      "v1_active": true,
+      "v1_note": ""
+    },
+    "deep_neck_flexor_weakness": {
+      "name_zh": "頸部深層穩定肌耐力不足",
+      "v1_active": false,
+      "v1_note": "D25：頭部前傾第一版只作觀察"
+    },
+    "back_scapular_endurance": {
+      "name_zh": "背部與肩胛周圍肌群耐力不足",
+      "v1_active": true,
+      "v1_note": ""
+    },
+    "gaze_habit": {
+      "name_zh": "走路習慣低頭看地面或手機",
+      "v1_active": false,
+      "v1_note": "D25：頭部前傾第一版只作觀察"
+    }
   },
   "refer_only_causes": {
     "pain_guarding": {
@@ -790,7 +870,8 @@
       "exercise_ids": [
         "half-kneeling-hip-flexor-stretch",
         "split-squat"
-      ]
+      ],
+      "v1_active": true
     },
     {
       "problem": "hip_extension_deficit",
@@ -799,7 +880,8 @@
         "glute-bridge",
         "standing-hip-extension",
         "split-squat"
-      ]
+      ],
+      "v1_active": true
     },
     {
       "problem": "hip_extension_deficit",
@@ -807,14 +889,16 @@
       "exercise_ids": [
         "calf-raise",
         "push-off-walking-cue"
-      ]
+      ],
+      "v1_active": true
     },
     {
       "problem": "hip_extension_deficit",
       "cause": "slow_short_stride",
       "exercise_ids": [
         "push-off-walking-cue"
-      ]
+      ],
+      "v1_active": true
     },
     {
       "problem": "knee_flexion_abnormal",
@@ -822,7 +906,8 @@
       "exercise_ids": [
         "standing-quad-stretch",
         "swing-knee-lift-walking-cue"
-      ]
+      ],
+      "v1_active": true
     },
     {
       "problem": "knee_flexion_abnormal",
@@ -830,28 +915,32 @@
       "exercise_ids": [
         "calf-raise",
         "swing-knee-lift-walking-cue"
-      ]
+      ],
+      "v1_active": true
     },
     {
       "problem": "knee_flexion_abnormal",
       "cause": "slow_short_stride",
       "exercise_ids": [
         "swing-knee-lift-walking-cue"
-      ]
+      ],
+      "v1_active": true
     },
     {
       "problem": "knee_flexion_abnormal",
       "cause": "hamstring_tightness",
       "exercise_ids": [
         "supine-hamstring-towel-stretch"
-      ]
+      ],
+      "v1_active": true
     },
     {
       "problem": "knee_flexion_abnormal",
       "cause": "quad_weakness",
       "exercise_ids": [
         "sit-to-stand"
-      ]
+      ],
+      "v1_active": true
     },
     {
       "problem": "knee_flexion_abnormal",
@@ -859,15 +948,18 @@
       "exercise_ids": [
         "soft-knee-single-leg-balance",
         "sit-to-stand"
-      ]
+      ],
+      "v1_active": false
     },
     {
       "problem": "trunk_head_forward_lean",
       "cause": "thoracic_stiffness",
       "exercise_ids": [
         "seated-thoracic-extension",
-        "wall-angel"
-      ]
+        "wall-angel",
+        "tall-walking-cue"
+      ],
+      "v1_active": true
     },
     {
       "problem": "trunk_head_forward_lean",
@@ -875,35 +967,40 @@
       "exercise_ids": [
         "doorway-pec-stretch",
         "wall-angel"
-      ]
+      ],
+      "v1_active": true
     },
     {
       "problem": "trunk_head_forward_lean",
       "cause": "deep_neck_flexor_weakness",
       "exercise_ids": [
         "chin-tuck"
-      ]
+      ],
+      "v1_active": false
     },
     {
       "problem": "trunk_head_forward_lean",
       "cause": "back_scapular_endurance",
       "exercise_ids": [
         "wall-angel"
-      ]
+      ],
+      "v1_active": true
     },
     {
       "problem": "trunk_head_forward_lean",
       "cause": "hip_flexor_tightness",
       "exercise_ids": [
         "half-kneeling-hip-flexor-stretch"
-      ]
+      ],
+      "v1_active": true
     },
     {
       "problem": "trunk_head_forward_lean",
       "cause": "gaze_habit",
       "exercise_ids": [
         "tall-walking-cue"
-      ]
+      ],
+      "v1_active": false
     }
   ],
   "exercises": [
@@ -956,7 +1053,9 @@
           "下背痛在伸展後加劇，或出現腿部麻、刺、電流感。"
         ]
       },
-      "evidence_note": "Watt 2011（RCT）：10 週髖屈肌伸展可增加行走時髖伸展受限老人的峰值髖伸展與步幅。"
+      "evidence_note": "Watt 2011（RCT）：10 週髖屈肌伸展可增加行走時髖伸展受限老人的峰值髖伸展與步幅。",
+      "v1_active": true,
+      "v1_note": "第一版啟用。"
     },
     {
       "id": "glute-bridge",
@@ -1004,7 +1103,9 @@
           "下背痛加劇，或出現腿部麻、刺痛。"
         ]
       },
-      "evidence_note": "劑量依 ACSM 2011 肌力訓練建議；臀肌無力與髖伸展減少的關聯為 Kerrigan 2001 的討論推論，直接介入證據有限。"
+      "evidence_note": "劑量依 ACSM 2011 肌力訓練建議；臀肌無力與髖伸展減少的關聯為 Kerrigan 2001 的討論推論，直接介入證據有限。",
+      "v1_active": true,
+      "v1_note": "第一版啟用。"
     },
     {
       "id": "standing-hip-extension",
@@ -1050,7 +1151,9 @@
           "下背或髖部出現刺痛。"
         ]
       },
-      "evidence_note": "依一般肌力訓練原則設計（ACSM 2011）；為「推估」對應，無針對此動作改善步態髖伸展的直接研究。"
+      "evidence_note": "依一般肌力訓練原則設計（ACSM 2011）；為「推估」對應，無針對此動作改善步態髖伸展的直接研究。",
+      "v1_active": true,
+      "v1_note": "第一版啟用。"
     },
     {
       "id": "calf-raise",
@@ -1096,7 +1199,9 @@
           "腳跟後方或小腿出現刺痛、腫脹。"
         ]
       },
-      "evidence_note": "Kerrigan 1998：老人髖伸展減少常伴隨踝蹠屈推進功率下降；Goldberg 2003：離地時膝屈曲速度不足是僵直膝的主要因素之一。劑量依 ACSM 2011。"
+      "evidence_note": "Kerrigan 1998：老人髖伸展減少常伴隨踝蹠屈推進功率下降；Goldberg 2003：離地時膝屈曲速度不足是僵直膝的主要因素之一。劑量依 ACSM 2011。",
+      "v1_active": true,
+      "v1_note": "第一版啟用。"
     },
     {
       "id": "split-squat",
@@ -1143,7 +1248,9 @@
           "膝蓋前方或內側出現刺痛、卡住或腫脹。"
         ]
       },
-      "evidence_note": "依一般肌力訓練原則設計（ACSM 2011）；為「推估」對應。"
+      "evidence_note": "依一般肌力訓練原則設計（ACSM 2011）；為「推估」對應。",
+      "v1_active": true,
+      "v1_note": "第一版啟用。"
     },
     {
       "id": "push-off-walking-cue",
@@ -1192,7 +1299,9 @@
           "髖、膝、腳踝疼痛在練習後加劇。"
         ]
       },
-      "evidence_note": "Lewis & Ferris 2008：簡單的口語指示（推地多一點）就能改變步行中的踝推蹬與髖力矩。以提示改善髖伸展角度的直接證據有限（推估）。"
+      "evidence_note": "Lewis & Ferris 2008：簡單的口語指示（推地多一點）就能改變步行中的踝推蹬與髖力矩。以提示改善髖伸展角度的直接證據有限（推估）。",
+      "v1_active": true,
+      "v1_note": "第一版啟用。"
     },
     {
       "id": "standing-quad-stretch",
@@ -1239,7 +1348,9 @@
           "伸展時下背痛或腿部發麻。"
         ]
       },
-      "evidence_note": "股直肌過度活動與僵直膝的關聯來自神經族群研究（Kerrigan 1991）；一般族群以伸展改善擺盪期膝屈曲為「推估」。"
+      "evidence_note": "股直肌過度活動與僵直膝的關聯來自神經族群研究（Kerrigan 1991）；一般族群以伸展改善擺盪期膝屈曲為「推估」。",
+      "v1_active": true,
+      "v1_note": "第一版啟用。"
     },
     {
       "id": "supine-hamstring-towel-stretch",
@@ -1287,7 +1398,9 @@
           "下背痛加劇。"
         ]
       },
-      "evidence_note": "Bandy 1997：膕旁肌靜態伸展 30 秒、每週 5 天、6 週可增加活動度。膕旁肌緊繃與著地膝屈曲過多的關聯為「推估」。"
+      "evidence_note": "Bandy 1997：膕旁肌靜態伸展 30 秒、每週 5 天、6 週可增加活動度。膕旁肌緊繃與著地膝屈曲過多的關聯為「推估」。",
+      "v1_active": true,
+      "v1_note": "第一版啟用。"
     },
     {
       "id": "sit-to-stand",
@@ -1300,7 +1413,7 @@
         "quad_weakness",
         "knee_control_locking"
       ],
-      "purpose": "強化大腿前側與臀部，並練習站直時膝蓋「伸直但不往後鎖死」，讓支撐時膝蓋撐得住、不會一直彎著或往後頂。",
+      "purpose": "強化大腿前側與臀部，讓著地與支撐時膝蓋撐得住、不會一直彎著；站直時也練習膝蓋「伸直但不往後鎖死」（後者對應第二版的膝過伸）。",
       "equipment": "穩固、沒有輪子的椅子（約膝蓋高度），靠牆擺放",
       "start_position": "坐在椅子前半部，雙腳平踩地面、與髖同寬，腳掌略在膝蓋正下方或稍後方，雙手交叉放胸前。",
       "steps": [
@@ -1334,7 +1447,9 @@
           "頭暈、眼前發黑、胸悶。"
         ]
       },
-      "evidence_note": "依一般肌力訓練原則設計（ACSM 2011）；股四頭肌無力與支撐期膝角異常的對應為「推估」。"
+      "evidence_note": "依一般肌力訓練原則設計（ACSM 2011）；股四頭肌無力與支撐期膝角異常的對應為「推估」。",
+      "v1_active": true,
+      "v1_note": "第一版啟用。"
     },
     {
       "id": "soft-knee-single-leg-balance",
@@ -1381,7 +1496,9 @@
           "練習時頭暈、膝蓋疼痛或有「膝蓋鬆脫」的感覺。"
         ]
       },
-      "evidence_note": "依神經動作訓練原則設計（ACSM 2011）；以此改善步行膝過伸為「推估」。"
+      "evidence_note": "依神經動作訓練原則設計（ACSM 2011）；以此改善步行膝過伸為「推估」。",
+      "v1_active": false,
+      "v1_note": "第一版不觸發（D24：膝過伸延到第二版）；保留給第二版膝過伸使用。"
     },
     {
       "id": "swing-knee-lift-walking-cue",
@@ -1430,7 +1547,9 @@
           "膝蓋疼痛或腫脹。"
         ]
       },
-      "evidence_note": "Goldberg 2003：多數僵直膝個案的主要因素是離地時膝屈曲速度不足，而非擺盪期伸膝力矩過大；本練習以推蹬與擺盪提示對應此機轉，效果為「推估」。"
+      "evidence_note": "Goldberg 2003：多數僵直膝個案的主要因素是離地時膝屈曲速度不足，而非擺盪期伸膝力矩過大；本練習以推蹬與擺盪提示對應此機轉，效果為「推估」。",
+      "v1_active": true,
+      "v1_note": "第一版啟用。"
     },
     {
       "id": "chin-tuck",
@@ -1478,7 +1597,9 @@
           "手臂或手指出現麻、刺痛，或頸部疼痛往手臂延伸。"
         ]
       },
-      "evidence_note": "Sheikhhoseini 2018（統合分析）、Sepehri 2024（上交叉症候群統合分析）：運動介入可改善頭前伸姿勢指標。"
+      "evidence_note": "Sheikhhoseini 2018（統合分析）、Sepehri 2024（上交叉症候群統合分析）：運動介入可改善頭前伸姿勢指標。",
+      "v1_active": false,
+      "v1_note": "第一版不觸發（D25：頭部前傾只作觀察）；保留給第二版頭部前傾分級使用。"
     },
     {
       "id": "doorway-pec-stretch",
@@ -1526,7 +1647,9 @@
           "肩膀前方刺痛。"
         ]
       },
-      "evidence_note": "Sepehri 2024 統合分析：包含伸展與肌力的綜合運動可改善頭前伸、圓肩與駝背指標；單獨伸展的效果為「推估」。"
+      "evidence_note": "Sepehri 2024 統合分析：包含伸展與肌力的綜合運動可改善頭前伸、圓肩與駝背指標；單獨伸展的效果為「推估」。",
+      "v1_active": true,
+      "v1_note": "第一版啟用。"
     },
     {
       "id": "seated-thoracic-extension",
@@ -1573,7 +1696,9 @@
           "頭暈。"
         ]
       },
-      "evidence_note": "依一般活動度訓練原則設計；以胸椎伸展改善步行軀幹前傾為「推估」。"
+      "evidence_note": "依一般活動度訓練原則設計；以胸椎伸展改善步行軀幹前傾為「推估」。",
+      "v1_active": true,
+      "v1_note": "第一版啟用。"
     },
     {
       "id": "wall-angel",
@@ -1622,7 +1747,9 @@
           "肩膀刺痛或手臂發麻。"
         ]
       },
-      "evidence_note": "Sepehri 2024 統合分析支持以肌力與綜合運動改善上交叉症候群姿勢指標；此動作的步行效果為「推估」。"
+      "evidence_note": "Sepehri 2024 統合分析支持以肌力與綜合運動改善上交叉症候群姿勢指標；此動作的步行效果為「推估」。",
+      "v1_active": true,
+      "v1_note": "第一版啟用。"
     },
     {
       "id": "tall-walking-cue",
@@ -1672,7 +1799,9 @@
           "背痛或頸痛加劇。"
         ]
       },
-      "evidence_note": "Lin 2025：頭前伸者在承重期與擺盪前後期的軀幹屈曲較大。以姿勢提示改善步行軀幹角度的直接證據有限（推估）。"
+      "evidence_note": "Lin 2025：頭前伸者在承重期與擺盪前後期的軀幹屈曲較大。以姿勢提示改善步行軀幹角度的直接證據有限（推估）。",
+      "v1_active": true,
+      "v1_note": "第一版啟用。"
     }
   ]
 }
