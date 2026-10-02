@@ -1,26 +1,60 @@
+/*
+ * 這個檔案做什麼：
+ *   全站共用的樣式設定：載入 Tailwind CSS、定義品牌顏色與字型。
+ *   顏色集中在下面的 @theme，想換配色只要改這裡。
+ *   字型用「系統字型」：使用者裝置上本來就有的中文字型，不需要從網路下載。
+ */
 @import "tailwindcss";
 
+@theme {
+  /* 系統字型堆疊：蘋果 → 安卓／Linux → Windows */
+  --font-sans:
+    system-ui, -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC",
+    "Microsoft JhengHei", "Heiti TC", "Segoe UI", Roboto, sans-serif;
+
+  /* 品牌主色（沉穩的青綠色） */
+  --color-brand-50: #eef8f6;
+  --color-brand-100: #d5eeea;
+  --color-brand-600: #17796b;
+  --color-brand-700: #115f54;
+  --color-brand-800: #0d4a42;
+
+  /* 文字與背景 */
+  --color-ink: #1f2933;
+  --color-muted: #52606d;
+  --color-line: #d9e2ec;
+  --color-surface: #f7f9fb;
+
+  /* 嚴重度（UX §4.1：綠／琥珀黃／橘，不用紅色） */
+  --color-sev-normal: #2f855a;
+  --color-sev-mild: #b7791f;
+  --color-sev-marked: #c05621;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  color-scheme: light;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: #ffffff;
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  /* 中文內文行高稍高，比較好讀 */
+  line-height: 1.7;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* 收合區塊（<details>）的小三角形改用文字箭頭，手機與電腦一致 */
+details > summary {
+  list-style: none;
+  cursor: pointer;
+}
+details > summary::-webkit-details-marker {
+  display: none;
+}
+details > summary .summary-arrow {
+  transition: transform 0.15s ease;
+}
+details[open] > summary .summary-arrow {
+  transform: rotate(90deg);
 }

@@ -1,0 +1,163 @@
+/**
+ * 這個檔案做什麼：
+ *   P4 報告頁（網址：/report）。目前用 src/data/sample-report.ts 的「假資料」展示版面，
+ *   區塊順序依 docs/spec/ux-flow-and-copy.md §2.5：
+ *   短版免責聲明 → （低可信度提示）→ 總覽＋測試版標準 → 問題卡片 → 看起來不錯
+ *   → 觀察：頭部位置 → 骨架回放 → 什麼時候該找專業人員 → 下一步 → 離開提醒。
+ *   手機是單欄；電腦是「左欄骨架回放固定、右欄卡片捲動」。
+ */
+
+import type { Metadata } from "next";
+import { ProblemCard } from "@/components/report/ProblemCard";
+import { ReplayPlaceholder } from "@/components/report/ReplayPlaceholder";
+import { SeekCareSection } from "@/components/report/SeekCare";
+import { ButtonLink, buttonClass } from "@/components/ui/ButtonLink";
+import { DisclaimerStrip } from "@/components/ui/DisclaimerStrip";
+import { AlertIcon, CheckIcon, InfoIcon } from "@/components/ui/icons";
+import { PageContainer } from "@/components/ui/PageContainer";
+import { SeverityMeter } from "@/components/ui/SeverityMeter";
+import { CONFIDENCE_INFO, CONFIDENCE_LABEL, NEXT_STEPS_COPY } from "@/data/report-copy";
+import { SAMPLE_REPORT } from "@/data/sample-report";
+import { STANDARD_LABEL } from "@/data/site";
+
+export const metadata: Metadata = { title: "你的走路分析報告" };
+
+export default function ReportPage() {
+  // M4 起改成讀取真正的分析結果；目前固定使用假資料
+  const report = SAMPLE_REPORT;
+  const isLowConfidence = report.confidence === "low";
+  const hasMarked = report.problems.some((problem) => problem.severity === "marked");
+
+  return (
+    <PageContainer width="wide" className="space-y-6">
+      {/* 開發中說明：接上真正的分析後刪除 */}
+      <p className="rounded-lg border-2 border-dashed border-sev-mild px-3 py-2 text-sm font-semibold text-sev-mild">
+        這是示範報告（假資料），只用來展示版面，不是任何人的真實分析結果。
+      </p>
+
+      {/* 1. 短版免責聲明 */}
+      <DisclaimerStrip />
+
+      {/* 2. 低可信度提示（只在可信度「較低」時出現，UX §4.5） */}
+      {report.lowConfidence && (
+        <div className="rounded-xl border border-sev-mild bg-amber-50 p-4">
+          <p className="flex items-center gap-2 font-bold">
+            <AlertIcon className="h-5 w-5 text-sev-mild" />
+            這次結果的可信度較低，僅供參考
+          </p>
+          <p className="mt-1">{report.lowConfidence.reason}</p>
+          <p className="mt-1 text-sm">怎麼改善：{report.lowConfidence.fix}</p>
+          <ButtonLink href="/guide" variant="ghost">
+            照教學重拍一次
+          </ButtonLink>
+        </div>
+      )}
+
+      {/* 3. 總覽 */}
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <h1 className="text-2xl font-bold sm:text-3xl">你的走路分析報告</h1>
+          {STANDARD_LABEL.show && (
+            <details className="text-sm">
+              <summary className="inline-flex items-center gap-1 rounded-full border border-muted px-3 py-0.5 text-muted">
+                {STANDARD_LABEL.text}
+                <InfoIcon className="h-4 w-4" />
+              </summary>
+              <p className="mt-2 max-w-md rounded-lg bg-surface p-3 text-muted">{STANDARD_LABEL.explanation}</p>
+            </details>
+          )}
+        </div>
+        <p className="text-lg">{report.summary}</p>
+        <div className="text-sm text-muted">
+          <span>
+            分析了 {report.stepsAnalyzed} 步（{report.cyclesAnalyzed} 個完整步態週期）・影片長度 {report.durationSec}{" "}
+            秒・
+          </span>
+          <details className="inline-block align-top">
+            <summary className="inline-flex items-center gap-1">
+              可信度：<strong className="text-ink">{CONFIDENCE_LABEL[report.confidence]}</strong>
+              <InfoIcon className="h-4 w-4" />
+            </summary>
+            <div className="mt-2 max-w-md space-y-1 rounded-lg bg-surface p-3">
+              {report.confidenceTip && <p>{report.confidenceTip}</p>}
+              <p>{CONFIDENCE_INFO}</p>
+            </div>
+          </details>
+        </div>
+        {report.slowSpeed && (
+          <p className="flex items-start gap-2 text-sm text-muted">
+            <InfoIcon className="mt-0.5 h-4 w-4 shrink-0" />
+            這次影片中你走得比較慢。走路速度會影響關節的動作幅度，部分結果可能和走得慢有關。如果這不是你平常的速度，可以用平常的速度再拍一次。
+          </p>
+        )}
+      </section>
+
+      {/* 手機：單欄由上到下；電腦：左欄骨架回放固定、右欄其他區塊 */}
+      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-start">
+        {/* 4. 問題卡片（依嚴重度排序：明顯 → 輕度） */}
+        <section className="space-y-4 lg:col-start-2" aria-label="問題卡片">
+          {report.problems.map((problem) => (
+            <ProblemCard key={problem.id} problem={problem} lowConfidence={isLowConfidence} />
+          ))}
+        </section>
+
+        {/* 5. 看起來不錯 */}
+        {report.goodItems.length > 0 && (
+          <details className="rounded-2xl border border-line px-4 lg:col-start-2">
+            <summary className="flex min-h-12 items-center gap-2 py-2 font-bold">
+              <CheckIcon className="h-5 w-5 text-sev-normal" />
+              看起來不錯（{report.goodItems.length} 項）
+            </summary>
+            <ul className="space-y-2 pb-4">
+              {report.goodItems.map((item) => (
+                <li key={item} className="flex flex-wrap items-center gap-3">
+                  <span className="font-semibold">{item}</span>
+                  <SeverityMeter severity="normal" />
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+
+        {/* 6. 觀察：頭部位置（不分級、不給練習，D25） */}
+        {report.headObservation && (
+          <section className="rounded-2xl bg-surface p-4 lg:col-start-2">
+            <h2 className="font-bold">觀察：頭部位置</h2>
+            <div className="mt-1 space-y-1 text-sm text-muted">
+              {report.headObservation.map((paragraph) => (
+                <p key={paragraph}>{paragraph}</p>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* 7. 骨架回放（電腦版固定在左欄） */}
+        <div className="lg:sticky lg:top-20 lg:col-start-1 lg:row-span-6 lg:row-start-1">
+          <ReplayPlaceholder markers={report.timelineMarkers} durationLabel={report.durationLabel} />
+        </div>
+
+        {/* 8. 什麼時候該找專業人員 */}
+        <div className="lg:col-start-2">
+          <SeekCareSection defaultOpen={hasMarked} />
+        </div>
+
+        {/* 9. 下一步（資料捐贈邀請在 M6 才加入） */}
+        <section className="space-y-3 lg:col-start-2">
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <button type="button" className={buttonClass("primary")} disabled title="即將推出">
+              {NEXT_STEPS_COPY.download}（即將推出）
+            </button>
+            <ButtonLink href="/upload" variant="secondary">
+              {NEXT_STEPS_COPY.again}
+            </ButtonLink>
+          </div>
+          {/* 10. 離開提醒 */}
+          <p className="flex items-start gap-2 text-sm text-muted">
+            <InfoIcon className="mt-0.5 h-4 w-4 shrink-0" />
+            {NEXT_STEPS_COPY.leaveNotice}
+          </p>
+        </section>
+      </div>
+    </PageContainer>
+  );
+}

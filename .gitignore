@@ -1,8 +1,30 @@
-node_modules/
-build/
-dist/
-coverage/
+# 這個檔案做什麼：列出「不要放進 Git」的檔案與資料夾（自動產生的、或含有密碼的）。
+
+# 套件（npm install 會自動下載）
+/node_modules
+
+# 測試覆蓋率報告
+/coverage
+
+# Next.js 建置產物
+/.next/
+/out/
+/build
+/dist
+
+# 環境變數（可能含 API 金鑰，絕對不要上傳）
+.env*.local
+.env
+
+# Vercel 部署設定
+.vercel
+
+# TypeScript 自動產生的檔案
+*.tsbuildinfo
+next-env.d.ts
+
+# 系統與記錄檔
 .DS_Store
+*.pem
 *.log
-.env*
-!.env.example
+npm-debug.log*
